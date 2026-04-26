@@ -17,6 +17,9 @@ function getTimeLeft(endTime) {
 export default function CountdownTimer({ endTime, onExpired }) {
   const [timeLeft, setTimeLeft] = useState(() => getTimeLeft(endTime));
   const expiredCalled = useRef(false);
+  // Keep a ref so the interval always calls the latest onExpired without restarting
+  const onExpiredRef = useRef(onExpired);
+  useEffect(() => { onExpiredRef.current = onExpired; });
 
   useEffect(() => {
     expiredCalled.current = false;
@@ -28,7 +31,7 @@ export default function CountdownTimer({ endTime, onExpired }) {
       if (!t && !expiredCalled.current) {
         expiredCalled.current = true;
         clearInterval(interval);
-        onExpired?.();
+        onExpiredRef.current?.();
       }
     }, 1000);
 

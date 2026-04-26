@@ -49,6 +49,8 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
 
     function handleNewBid(data) {
       if (data.auctionId !== auction._id) return;
+      // Skip echo of our own bid — already added optimistically in handlePlaceBid
+      if (String(data.bidder) === String(currentUserId)) return;
       const entry = {
         _id: data.bidId,
         bidder: data.bidder,

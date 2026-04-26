@@ -49,10 +49,11 @@ export default function BidderDashboard() {
     try {
       /*
       // UNCOMMENT THIS WHEN BACKEND IS READY
+      // buyerId is intentionally omitted — backend must derive buyer identity from the JWT, not request body
       const response = await fetch('/api/escrow/confirm-delivery', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ auctionId, buyerId: mockUserId })
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ auctionId })
       });
       if (!response.ok) throw new Error("Delivery confirmation failed");
       */
