@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const http = require('http');
+const http = require('node:http');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const { initSocket } = require('./services/socketService');
@@ -9,6 +9,7 @@ const authRoutes = require('./routes/authRoutes');
 const auctionRoutes = require('./routes/auctionRoutes');
 const bidRoutes = require('./routes/bidRoutes');
 const escrowRoutes = require('./routes/escrowRoutes');
+const bidderRoutes = require('./routes/bidderRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -25,6 +26,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/auctions', auctionRoutes);
 app.use('/api/bids', bidRoutes);
 app.use('/api/escrow', escrowRoutes);
+app.use('/api/bidders', bidderRoutes);
 
 app.use((err, _req, res, _next) => {
   const status = err.status || 500;

@@ -3,6 +3,7 @@ import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 import BidderDashboard from './pages/BidderDashboard';
 import AuctionListingPage from './pages/AuctionListingPage';
 import AuctionPage from './pages/AuctionPage';
+import SellerDashboard from './pages/SellerDashboard';
 import { SocketProvider } from './context/SocketContext';
 
 function App() {
@@ -27,6 +28,9 @@ function App() {
                     <Link to="/auctions" className="hover:text-blue-600 transition-colors">
                       Browse Auctions
                     </Link>
+                    <Link to="/seller" className="hover:text-blue-600 transition-colors">
+                      Sell
+                    </Link>
                   </div>
                 </div>
                 <div className="text-sm font-medium text-gray-500">
@@ -42,6 +46,7 @@ function App() {
               <Route path="/" element={<BidderDashboard />} />
               <Route path="/auctions" element={<AuctionListingPage />} />
               <Route path="/auctions/:id" element={<AuctionPage />} />
+              <Route path="/seller" element={<SellerDashboard />} />
             </Routes>
           </main>
         </div>

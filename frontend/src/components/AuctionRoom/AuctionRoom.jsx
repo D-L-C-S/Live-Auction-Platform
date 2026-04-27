@@ -72,14 +72,22 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
       }
     }
 
-    // auction_closed is not in backend yet — handled via local timer (onExpired)
+    function handleAuctionClosed(data) {
+      if (data.auctionId !== auction._id) return;
+      setIsClosed(true);
+      if (data.winnerId) setWinner({ _id: data.winnerId });
+      if (data.finalAmount != null) setFinalAmount(data.finalAmount);
+    }
+
     socket.on('new_bid', handleNewBid);
     socket.on('outbid', handleOutbid);
+    socket.on('auction_closed', handleAuctionClosed);
 
     return () => {
       socket.emit('leave_room', auction._id);
       socket.off('new_bid', handleNewBid);
       socket.off('outbid', handleOutbid);
+      socket.off('auction_closed', handleAuctionClosed);
       clearTimeout(outbidTimer.current);
     };
   }, [socket, auction._id, currentUserId]);

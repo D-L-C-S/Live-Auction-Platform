@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const API_BASE = "http://localhost:5000"; // update to deployed URL
+const API_BASE = "";
 
 const ENDPOINTS = {
   createListing: `${API_BASE}/api/auctions`,
@@ -55,14 +55,18 @@ function CreateListingForm({ onSuccess }) {
 
     setLoading(true);
     try {
+      const token = localStorage.getItem("token");
       const res = await fetch(ENDPOINTS.createListing, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      onSuccess(data);
+      onSuccess(data.auction);
     } catch (err) {
       setError(err.message || "Failed to create listing.");
     } finally {

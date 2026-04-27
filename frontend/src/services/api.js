@@ -62,11 +62,16 @@ export const MOCK_AUCTIONS = [
   },
 ];
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 // GET /api/auctions — returns all auctions; falls back to mock data on error
 export async function fetchAuctions() {
   try {
     const { data } = await axios.get('/api/auctions');
-    return data;
+    return data.auctions;
   } catch {
     return MOCK_AUCTIONS;
   }
@@ -76,7 +81,7 @@ export async function fetchAuctions() {
 export async function fetchAuction(id) {
   try {
     const { data } = await axios.get(`/api/auctions/${id}`);
-    return data;
+    return data.auction;
   } catch {
     const mock = MOCK_AUCTIONS.find((a) => a._id === id);
     if (mock) return mock;
@@ -85,8 +90,7 @@ export async function fetchAuction(id) {
 }
 
 // POST /api/bids/:auctionId — places a bid; auctionId in path, amount in body
-// Backend requires Bearer token auth; for demo we skip the token header
 export async function placeBid(auctionId, amount) {
-  const { data } = await axios.post(`/api/bids/${auctionId}`, { amount });
+  const { data } = await axios.post(`/api/bids/${auctionId}`, { amount }, { headers: getAuthHeaders() });
   return data;
 }

@@ -17,6 +17,7 @@ const auctionSchema = new mongoose.Schema(
       default: 'pending',
     },
     winner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    reservePrice: { type: Number, default: null },
     category: { type: String, trim: true },
   },
   { timestamps: true }
