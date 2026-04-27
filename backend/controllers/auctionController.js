@@ -1,6 +1,5 @@
 const Auction = require('../models/Auction');
-const Escrow = require('../models/Escrow');
-const { createPaymentIntent } = require('../services/stripeService');
+const { performClose } = require('../services/auctionService');
 
 const createAuction = async (req, res, next) => {
   try {
@@ -68,8 +67,6 @@ const getAuction = async (req, res, next) => {
   }
 };
 
-// Called by the seller to close the auction (and by the scheduled job when endTime passes).
-// Creates a Stripe PaymentIntent + Escrow record when there is a winner.
 const closeAuction = async (req, res, next) => {
   try {
     const auction = await Auction.findById(req.params.id);
@@ -81,48 +78,8 @@ const closeAuction = async (req, res, next) => {
       return res.status(403).json({ message: 'Only the seller can close this auction' });
     }
 
-    auction.status = 'closed';
-
-    if (!auction.currentHighestBidder) {
-      // No bids — close with no winner, no escrow
-      await auction.save();
-      req.io.to(auction._id.toString()).emit('auction_closed', {
-        auctionId: auction._id,
-        winnerId: null,
-        finalAmount: null,
-      });
-      return res.json({ auction });
-    }
-
-    auction.winner = auction.currentHighestBidder;
-    await auction.save();
-
-    const paymentIntent = await createPaymentIntent({
-      amount: auction.currentHighestBid,
-      metadata: {
-        auctionId: auction._id.toString(),
-        winnerId: auction.winner.toString(),
-        sellerId: auction.seller.toString(),
-      },
-    });
-
-    await Escrow.create({
-      auction: auction._id,
-      winner: auction.winner,
-      seller: auction.seller,
-      amount: auction.currentHighestBid,
-      stripePaymentIntentId: paymentIntent.id,
-      status: 'held',
-    });
-
-    req.io.to(auction._id.toString()).emit('auction_closed', {
-      auctionId: auction._id,
-      winnerId: auction.winner,
-      finalAmount: auction.currentHighestBid,
-    });
-
-    // clientSecret is sent to the winner's frontend to confirm payment via Stripe.js
-    res.json({ auction, clientSecret: paymentIntent.client_secret });
+    const { auction: closed, clientSecret } = await performClose(auction, req.io);
+    res.json({ auction: closed, clientSecret });
   } catch (err) {
     next(err);
   }
