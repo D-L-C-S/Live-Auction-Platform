@@ -41,6 +41,7 @@ npm start       # production
 | POST | `/api/auctions` | JWT | Create an auction |
 | PATCH | `/api/auctions/:id/close` | JWT | Close an auction |
 | POST | `/api/bids/:auctionId` | JWT | Place a bid |
+| POST | `/api/bids/:auctionId/proxy` | JWT | Set/update proxy max bid and auto-resolve bidding |
 | POST | `/api/escrow/confirm-delivery` | JWT | Buyer confirms receipt, releases funds |
 | POST | `/api/escrow/refund` | JWT | Refund winner's held payment |
 | POST | `/api/escrow/webhook` | Stripe sig | Stripe webhook handler |
@@ -106,7 +107,7 @@ backend/
 | Bid placement endpoint + socket events | Done |
 | Auth controller (register / login) | In progress |
 | Auction controller (CRUD, close) | In progress |
-| Proxy bid service | In progress |
+| Proxy bid service | Done |
 | Escrow controller + Stripe service | In progress |
-| ProxyBid model | Stub |
+| ProxyBid model | Done |
 | Stripe webhook handler | In progress |
