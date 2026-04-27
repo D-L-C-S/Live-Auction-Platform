@@ -16,4 +16,8 @@ const escrowSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+escrowSchema.index({ winner: 1, createdAt: -1 });
+escrowSchema.index({ seller: 1, createdAt: -1 });
+escrowSchema.index({ status: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Escrow', escrowSchema);

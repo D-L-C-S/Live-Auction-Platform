@@ -22,4 +22,7 @@ const auctionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+auctionSchema.index({ status: 1, endTime: 1 });
+auctionSchema.index({ seller: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Auction', auctionSchema);
