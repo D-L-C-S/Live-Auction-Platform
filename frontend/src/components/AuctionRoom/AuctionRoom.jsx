@@ -12,7 +12,7 @@ function formatAmount(n) {
 // Props:
 //   auction — auction object from API or mock
 //   socket  — socket.io-client instance (may be null if not yet connected)
-//   currentUserId — id of the logged-in user (demo: "charan-demo-user")
+//   currentUserId — MongoDB _id of the logged-in user, from AuthContext
 export default function AuctionRoom({ auction, socket, currentUserId }) {
   const [bids, setBids] = useState(() => {
     // Seed the feed with the existing highest bid if one exists
