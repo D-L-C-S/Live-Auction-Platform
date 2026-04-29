@@ -3,13 +3,15 @@ import { useParams, Link } from 'react-router-dom';
 import { fetchAuction } from '../services/api';
 import AuctionRoom from '../components/AuctionRoom/AuctionRoom';
 import { useSocket } from '../hooks/useSocket';
-
-// Hardcoded demo user — replace with real auth when auth is implemented
-const CURRENT_USER_ID = 'charan-demo-user';
+import { useAuth } from '../context/AuthContext';
 
 export default function AuctionPage() {
   const { id } = useParams();
   const socket = useSocket();
+  const { currentUser } = useAuth();
+
+  // JWT payload uses `id`; guard against other possible field names.
+  const currentUserId = currentUser?.id || currentUser?._id || currentUser?.userId || '';
 
   const [auction, setAuction] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,7 +76,7 @@ export default function AuctionPage() {
       <AuctionRoom
         auction={auction}
         socket={socket}
-        currentUserId={CURRENT_USER_ID}
+        currentUserId={currentUserId}
       />
     </div>
   );
