@@ -43,9 +43,6 @@ function NavBar() {
             {/* Nav links — only show when authenticated */}
             {isAuthenticated && (
               <div className="hidden sm:flex items-center gap-6 text-sm font-medium text-gray-600">
-                <Link to="/" className="hover:text-blue-600 transition-colors">
-                  Dashboard
-                </Link>
                 <Link to="/auctions" className="hover:text-blue-600 transition-colors">
                   Browse Auctions
                 </Link>
