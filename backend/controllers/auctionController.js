@@ -78,8 +78,8 @@ const closeAuction = async (req, res, next) => {
       return res.status(403).json({ message: 'Only the seller can close this auction' });
     }
 
-    const { auction: closed, clientSecret } = await performClose(auction, req.io);
-    res.json({ auction: closed, clientSecret });
+    const { auction: closed } = await performClose(auction, req.io);
+    res.json({ auction: closed });
   } catch (err) {
     next(err);
   }

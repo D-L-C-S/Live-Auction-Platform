@@ -1,5 +1,4 @@
 const Escrow = require('../models/Escrow');
-const { capturePaymentIntent } = require('../services/stripeService');
 
 // GET /api/escrow/auction/:auctionId — winner or seller can check escrow status
 const getEscrow = async (req, res, next) => {
@@ -11,7 +10,10 @@ const getEscrow = async (req, res, next) => {
     if (!escrow) return res.status(404).json({ message: 'Escrow not found' });
 
     const userId = req.user._id;
-    if (!escrow.winner._id.equals(userId) && !escrow.seller._id.equals(userId)) {
+    const isWinner = escrow.winner._id.equals(userId);
+    const isSeller = escrow.seller._id.equals(userId);
+
+    if (!isWinner && !isSeller) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -21,7 +23,7 @@ const getEscrow = async (req, res, next) => {
   }
 };
 
-// POST /api/escrow/confirm-delivery — buyer confirms receipt; triggers Stripe capture
+// POST /api/escrow/confirm-delivery — buyer confirms receipt; releases escrow to seller
 const confirmDelivery = async (req, res, next) => {
   try {
     const { auctionId } = req.body;
@@ -36,8 +38,6 @@ const confirmDelivery = async (req, res, next) => {
     if (escrow.status !== 'held') {
       return res.status(400).json({ message: `Escrow is already ${escrow.status}` });
     }
-
-    await capturePaymentIntent(escrow.stripePaymentIntentId);
 
     escrow.status = 'released';
     await escrow.save();

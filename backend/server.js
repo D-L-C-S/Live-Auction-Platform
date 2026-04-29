@@ -10,7 +10,6 @@ const auctionRoutes = require('./routes/auctionRoutes');
 const bidRoutes = require('./routes/bidRoutes');
 const escrowRoutes = require('./routes/escrowRoutes');
 const bidderRoutes = require('./routes/bidderRoutes');
-const webhookRoutes = require('./routes/webhookRoutes');
 const { startScheduler } = require('./services/auctionScheduler');
 
 const app = express();
@@ -21,8 +20,6 @@ const socketMiddleware = initSocket(server);
 connectDB().then(() => startScheduler());
 
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
-// Webhook route must be before express.json() — Stripe sig verification needs the raw body
-app.use('/api/webhooks', webhookRoutes);
 app.use(express.json());
 app.use(socketMiddleware);
 
