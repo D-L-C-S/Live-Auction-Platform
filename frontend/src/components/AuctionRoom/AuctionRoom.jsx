@@ -41,6 +41,35 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
   const [bidError, setBidError] = useState('');
   const outbidTimer = useRef(null);
 
+  //fetch existing bid history on loading this
+  useEffect(() => {
+    const fetchBidHistory = async () => {
+      try {
+        const response = await fetch(`/api/bids/${auction._id}`);
+        if (!response.ok) throw new Error("Failed to fetch history");
+        
+        const historyData = await response.json();
+        
+        if (historyData && historyData.length > 0) {
+          // Format the backend data to perfectly match Charan's UI structure
+          const formattedHistory = historyData.map(bid => ({
+            _id: bid._id,
+            bidder: bid.bidder, // Keep as-is so Charan's logic handles object vs string
+            amount: bid.amount,
+            placedAt: bid.createdAt || bid.timestamp 
+          }));
+          
+          setBids(formattedHistory);
+        }
+      } catch (error) {
+        console.error("Error loading bid history:", error);
+      }
+    };
+
+    fetchBidHistory();
+  }, [auction._id]);
+  
+
   // Join auction socket room and wire up real-time events
   useEffect(() => {
     if (!socket) return;

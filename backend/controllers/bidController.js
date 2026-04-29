@@ -66,4 +66,21 @@ const placeProxyBid = async (req, res, next) => {
   }
 };
 
-module.exports = { placeBid, placeProxyBid };
+// NEW: Fetch all previous bids for the room load
+const getAuctionBids = async (req, res, next) => {
+  try {
+    const { auctionId } = req.params;
+    
+    // Finds all bids tied to this auction, sorts them highest amount to lowest
+    const bids = await Bid.find({ auction: auctionId })
+                          .populate('bidder', 'name username') 
+                          .sort({ amount: -1 });
+                          
+    res.status(200).json(bids);
+  } catch (err) {
+    next(err); // Matches your existing error handling structure
+  }
+};
+
+// Make sure to export the new function here!
+module.exports = { placeBid, placeProxyBid, getAuctionBids };
