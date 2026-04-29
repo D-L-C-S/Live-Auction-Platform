@@ -38,7 +38,7 @@ const getDashboard = async (req, res, next) => {
       _id: a._id,
       title: a.title,
       finalAmount: a.currentHighestBid,
-      escrowStatus: escrowMap.get(a._id.toString()) ?? null,
+      escrowStatus: escrowMap.get(a._id.toString()) ?? 'pending',
     }));
 
     res.json({ activeBids, wonAuctions: wonWithEscrow });

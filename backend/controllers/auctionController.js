@@ -6,10 +6,10 @@ const createAuction = async (req, res, next) => {
     const { title, description, images, startingPrice, reservePrice, auctionEndTime, category } =
       req.body;
 
-    if (!title || startingPrice == null || !auctionEndTime) {
+    if (!title || !description || startingPrice == null || !auctionEndTime) {
       return res
         .status(400)
-        .json({ message: 'title, startingPrice, and auctionEndTime are required' });
+        .json({ message: 'title, description, startingPrice, and auctionEndTime are required' });
     }
 
     const endTime = new Date(auctionEndTime);
