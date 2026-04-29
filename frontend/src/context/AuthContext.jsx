@@ -1,11 +1,19 @@
 import React, { createContext, useContext, useState } from 'react';
 
 // Decodes the payload of a JWT without any external library.
+// JWTs use base64url encoding (not standard base64): must replace - with +
+// and _ with /, then add = padding so atob() can parse it correctly.
 function decodeJWT(token) {
   try {
-    const base64Payload = token.split('.')[1];
-    return JSON.parse(atob(base64Payload));
-  } catch {
+    if (!token || typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+
+    let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4 !== 0) base64 += '=';
+
+    return JSON.parse(atob(base64));
+  } catch (e) {
     return null;
   }
 }
@@ -17,7 +25,16 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem('token'));
+  const [token, setToken] = useState(() => {
+    const stored = localStorage.getItem('token');
+    // Clear any stale junk (e.g. the literal string "undefined") from a previous bad session.
+    if (!stored || stored === 'undefined' || stored.split('.').length !== 3) {
+      localStorage.removeItem('token');
+      return null;
+    }
+    return stored;
+  });
+
   const [currentUser, setCurrentUser] = useState(() => {
     const stored = localStorage.getItem('token');
     return stored ? decodeJWT(stored) : null;

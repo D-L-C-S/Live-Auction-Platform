@@ -17,13 +17,28 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Registration failed');
+      let res;
+      try {
+        res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password }),
+        });
+      } catch {
+        throw new Error('Cannot reach the server. Make sure the backend is running.');
+      }
+
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Server returned an unexpected response. Check that MongoDB is running.');
+      }
+
+      if (!res.ok) throw new Error(data.message || 'Registration failed.');
+      if (!data.token || typeof data.token !== 'string' || data.token.split('.').length !== 3) {
+        throw new Error('Registration failed: server did not return a valid token.');
+      }
 
       // Store full user profile for display purposes (name, email, role).
       if (data.user) localStorage.setItem('authUser', JSON.stringify(data.user));
