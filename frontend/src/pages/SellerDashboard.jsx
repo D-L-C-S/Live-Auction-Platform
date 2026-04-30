@@ -1,24 +1,11 @@
-import { useState } from "react";
-
-const API_BASE = "";
-
-const ENDPOINTS = {
-  createListing: `${API_BASE}/api/auctions`,
-  getAuction: (id) => `${API_BASE}/api/auctions/${id}`,
-};
+import { useState, useEffect } from "react";
+import { createAuction, getSellerListings, fetchEscrow } from "../services/api";
 
 const STATUS_STYLES = {
   active:  { bg: "#ecfdf5", color: "#166534" },
   closed:  { bg: "#f3f4f6", color: "#4b5563" },
   settled: { bg: "#eff6ff", color: "#1e40af" },
 };
-
-const mockListings = [
-  { id: "a1", title: "Vintage Leica M3", startingPrice: 12000, reservePrice: 18000, currentBid: 21500, endsIn: "4h 22m", status: "active" },
-  { id: "a2", title: "Gibson SG Standard", startingPrice: 35000, reservePrice: 40000, currentBid: 38000, endsIn: "1d 11h", status: "active" },
-  { id: "a3", title: "Canon AE-1 Kit", startingPrice: 4500, reservePrice: 6000, currentBid: 7200, endsIn: null, status: "settled" },
-  { id: "a4", title: "Rolex Datejust 36", startingPrice: 220000, reservePrice: 280000, currentBid: 260000, endsIn: null, status: "closed" },
-];
 
 function fmt(n) {
   return "₹" + Number(n).toLocaleString("en-IN");
@@ -39,8 +26,8 @@ function CreateListingForm({ onSuccess }) {
 
   const handleSubmit = async () => {
     setError("");
-    if (!form.title || !form.startingPrice || !form.endDate || !form.endTime) {
-      setError("Title, starting price, and auction end date/time are required.");
+    if (!form.title || !form.description.trim() || !form.startingPrice || !form.endDate || !form.endTime) {
+      setError("Title, description, starting price, and auction end date/time are required.");
       return;
     }
 
@@ -55,18 +42,8 @@ function CreateListingForm({ onSuccess }) {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(ENDPOINTS.createListing, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
-      onSuccess(data.auction);
+      const newAuction = await createAuction(payload);
+      onSuccess(newAuction);
     } catch (err) {
       setError(err.message || "Failed to create listing.");
     } finally {
@@ -89,7 +66,7 @@ function CreateListingForm({ onSuccess }) {
       </div>
 
       <div style={styles.fieldFull}>
-        <label style={styles.label}>Description</label>
+        <label style={styles.label}>Description *</label>
         <textarea style={{ ...styles.input, minHeight: 72, resize: "vertical" }} value={form.description} onChange={set("description")} placeholder="Condition, details, provenance..." />
       </div>
 
@@ -133,6 +110,21 @@ function CreateListingForm({ onSuccess }) {
   );
 }
 
+// ─── Escrow Badge ─────────────────────────────────────────────────────────────
+
+const ESCROW_STYLES = {
+  pending:  { background: "#fefce8", color: "#854d0e" },
+  held:     { background: "#fff7ed", color: "#9a3412" },
+  released: { background: "#ecfdf5", color: "#166534" },
+};
+
+function EscrowBadge({ status }) {
+  const safe  = (status && status !== "null") ? status.toLowerCase() : "pending";
+  const label = safe.charAt(0).toUpperCase() + safe.slice(1);
+  const style = ESCROW_STYLES[safe] ?? ESCROW_STYLES.pending;
+  return <span style={{ ...styles.badge, ...style }}>{label}</span>;
+}
+
 // ─── Listings Table ───────────────────────────────────────────────────────────
 
 function ListingsTable({ listings }) {
@@ -141,7 +133,7 @@ function ListingsTable({ listings }) {
       <table style={styles.table}>
         <thead>
           <tr>
-            {["Item", "Starting", "Reserve", "Current bid", "Ends in", "Status"].map((h) => (
+            {["Item", "Starting", "Reserve", "Current bid", "Ends in", "Status", "Escrow"].map((h) => (
               <th key={h} style={styles.th}>{h}</th>
             ))}
           </tr>
@@ -163,6 +155,9 @@ function ListingsTable({ listings }) {
                   {l.status.charAt(0).toUpperCase() + l.status.slice(1)}
                 </span>
               </td>
+              <td style={styles.td}>
+                <EscrowBadge status={l.escrowStatus} />
+              </td>
             </tr>
           ))}
         </tbody>
@@ -171,26 +166,70 @@ function ListingsTable({ listings }) {
   );
 }
 
+// ─── Helper: compute a human-readable "ends in" string from an ISO timestamp ──
+
+function timeUntil(isoString) {
+  if (!isoString) return null;
+  const diff = new Date(isoString) - Date.now();
+  if (diff <= 0) return null;
+  const h = Math.floor(diff / 36e5);
+  const d = Math.floor(h / 24);
+  return d > 0 ? `${d}d ${h % 24}h` : `${h}h ${Math.floor((diff % 36e5) / 6e4)}m`;
+}
+
+function toRow(a) {
+  return {
+    id:            a._id,
+    title:         a.title,
+    startingPrice: a.startingPrice,
+    reservePrice:  a.reservePrice ?? 0,
+    currentBid:    a.currentHighestBid ?? a.startingPrice,
+    endsIn:        timeUntil(a.endTime),
+    status:        a.status ?? "active",
+    escrowStatus:  null,
+  };
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export default function SellerDashboard() {
   const [tab, setTab] = useState("dashboard");
-  const [listings, setListings] = useState(mockListings);
+  const [listings, setListings] = useState([]);
+  const [fetchError, setFetchError] = useState("");
+  const [fetchLoading, setFetchLoading] = useState(true);
   const [successMsg, setSuccessMsg] = useState("");
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw  = await getSellerListings();
+        const rows = (Array.isArray(raw) ? raw : []).map(toRow);
+        setListings(rows);
+
+        const needsEscrow = rows.filter((r) => r.status !== "active");
+        const escrowResults = await Promise.allSettled(
+          needsEscrow.map((r) => fetchEscrow(r.id))
+        );
+        escrowResults.forEach((result, i) => {
+          if (result.status === "fulfilled") {
+            const escrowStatus = result.value?.status ?? null;
+            setListings((prev) =>
+              prev.map((l) =>
+                l.id === needsEscrow[i].id ? { ...l, escrowStatus } : l
+              )
+            );
+          }
+        });
+      } catch (err) {
+        setFetchError(err.message || "Failed to load listings.");
+      } finally {
+        setFetchLoading(false);
+      }
+    })();
+  }, []);
+
   const handleSuccess = (newAuction) => {
-    setListings((prev) => [
-      {
-        id: newAuction._id,
-        title: newAuction.title,
-        startingPrice: newAuction.startingPrice,
-        reservePrice: newAuction.reservePrice,
-        currentBid: newAuction.startingPrice,
-        endsIn: "calculating…",
-        status: "active",
-      },
-      ...prev,
-    ]);
+    setListings((prev) => [toRow(newAuction), ...prev]);
     setSuccessMsg(`"${newAuction.title}" is now live.`);
     setTab("dashboard");
     setTimeout(() => setSuccessMsg(""), 4000);
@@ -227,8 +266,17 @@ export default function SellerDashboard() {
           </div>
           <div style={{ ...styles.sectionHeader, marginBottom: 12 }}>
             <span style={styles.sectionTitle}>My listings</span>
+            <code style={styles.endpointTag}>GET /api/auctions?seller=me</code>
           </div>
-          <ListingsTable listings={listings} />
+          {fetchLoading && (
+            <div style={{ padding: "2rem", textAlign: "center", color: "#9ca3af", fontSize: 13 }}>
+              Loading listings…
+            </div>
+          )}
+          {fetchError && !fetchLoading && (
+            <div style={styles.errorBar}>{fetchError}</div>
+          )}
+          {!fetchLoading && !fetchError && <ListingsTable listings={listings} />}
         </>
       )}
 

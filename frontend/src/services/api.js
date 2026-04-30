@@ -100,3 +100,15 @@ export async function fetchEscrow(auctionId) {
   const { data } = await axios.get(`/api/escrow/auction/${auctionId}`, { headers: getAuthHeaders() });
   return data.escrow;
 }
+
+// POST /api/auctions — create a new auction listing
+export async function createAuction(payload) {
+  const { data } = await axios.post('/api/auctions', payload, { headers: getAuthHeaders() });
+  return data.auction;
+}
+
+// GET /api/auctions?seller=me — fetch all listings for the logged-in seller
+export async function getSellerListings() {
+  const { data } = await axios.get('/api/auctions?seller=me', { headers: getAuthHeaders() });
+  return data.auctions;
+}
