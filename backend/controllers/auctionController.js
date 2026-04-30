@@ -38,10 +38,11 @@ const createAuction = async (req, res, next) => {
 
 const listAuctions = async (req, res, next) => {
   try {
-    const { status = 'active', category, seller } = req.query;
-    const filter = { status };
-    if (category) filter.category = category;
+    const { status, category, seller } = req.query;
+    const filter = {};
     if (seller === 'me' && req.user) filter.seller = req.user._id;
+    else filter.status = status || 'active';
+    if (category) filter.category = category;
 
     const auctions = await Auction.find(filter)
       .populate('seller', 'name')
