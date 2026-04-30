@@ -13,70 +13,56 @@ React 18 + Vite SPA for the Live Auction Platform.
 ## Setup
 
 ```bash
-cp .env.example .env
 npm install
-npm run dev       # Vite dev server on port 5173
+npm run dev       # Vite dev server on port 5173 — browser opens automatically
 npm run build     # production build → dist/
 npm run preview   # preview the production build locally
 ```
 
-## Environment Variables
-
-| Variable | Description |
-| --- | --- |
-| `VITE_SOCKET_URL` | Socket.io server URL (default: `http://localhost:5000`) |
-
-In development, Vite proxies all `/api` requests to `http://localhost:5000`, so you do not need to configure CORS or set an API base URL separately.
+In development, Vite proxies `/api` and `/uploads` requests to `http://localhost:5000`.
 
 ## Pages & Routing
 
 | Path | Component | Description |
 | --- | --- | --- |
-| `/` | `BidderDashboard` | Active bids and won auctions for the logged-in user |
-| `/auctions` | `AuctionListingPage` | Browse all auctions with search and sort |
+| `/` | `BidderDashboard` | Active bids and won auctions with escrow status |
+| `/login` | `LoginPage` | Login form |
+| `/register` | `RegisterPage` | Registration form |
+| `/auctions` | `AuctionListingPage` | Browse all active auctions |
 | `/auctions/:id` | `AuctionPage` | Live auction room for a single auction |
+| `/seller` | `SellerDashboard` | Create listings, view real-time escrow status |
 
 ## Key Components
 
-### `SocketContext` / `useSocket`
-
-A single `socket.io-client` instance is created at app mount inside `SocketProvider` and shared via React Context. Any component can call `useSocket()` to get the socket. The socket connects to `VITE_SOCKET_URL` and disconnects when the app unmounts.
-
 ### `AuctionRoom`
 
-Owns all real-time state for a single auction: bid feed, current highest bid, outbid alerts, and the closed/winner banner. On mount it emits `join_room`; on unmount it emits `leave_room`. Listens for `new_bid` and `outbid` socket events. Bid placement uses an optimistic local update — the server's socket echo is filtered out for the bidder to avoid duplicates.
-
-### `CountdownTimer`
-
-Ticks every second from `endTime`. Calls `onExpired` once when the timer reaches zero. Color shifts green → yellow → red as the deadline approaches (thresholds: 1 hour, 5 minutes).
+Owns all real-time state for a single auction: bid feed, current highest bid, outbid alerts, and the closed/winner banner. Sellers see a "You are the seller" message instead of the bidding form, plus a reserve price panel showing the reserve amount and a live "Reserve met / not met" badge. Broken image URLs fall back to a placeholder automatically.
 
 ### `BiddingForm`
 
-Collects a manual bid amount and an optional proxy max. The proxy max field is wired up in the UI but not yet sent to the backend (proxy bid service is in progress).
+Collects a manual bid and an optional proxy max. The proxy max field validates in real-time as you type — the input border turns red and the submit button is disabled until it's valid.
 
 ### `BidFeed`
 
-Scrollable list of bids, newest first. The top bid row is highlighted. Timestamps are shown as relative time ("2m ago").
+Scrollable list of bids, newest first, formatted in ₹ (Indian locale). Shows "No bids yet." for sellers and "Be the first to bid!" for buyers.
+
+### `CountdownTimer`
+
+Ticks every second from `endTime`. Calls `onExpired` when the timer reaches zero. Color shifts green → yellow → red as the deadline approaches.
+
+### `SellerDashboard`
+
+Fetches the seller's real listings on mount. Create form includes drag-and-drop / click-to-select image upload (PNG, JPG, WEBP up to 5 MB) with a live preview, plus an optional reserve price. Closed listings show live escrow status fetched per auction.
 
 ## API Service (`src/services/api.js`)
 
 | Function | Method | Path | Description |
 | --- | --- | --- | --- |
-| `fetchAuctions()` | GET | `/api/auctions` | List all auctions; falls back to mock data if backend is unavailable |
-| `fetchAuction(id)` | GET | `/api/auctions/:id` | Fetch one auction; falls back to mock match |
+| `fetchAuctions()` | GET | `/api/auctions` | List active auctions; falls back to mock data if backend is down |
+| `fetchAuction(id)` | GET | `/api/auctions/:id` | Fetch one auction |
 | `placeBid(auctionId, amount)` | POST | `/api/bids/:auctionId` | Place a bid |
-
-The mock fallback data in `api.js` lets the UI run without a live backend during development.
-
-## Implementation Status
-
-| Feature | Status |
-| --- | --- |
-| Auction listing page (browse, search, sort) | Done |
-| Auction room (live feed, countdown, bidding) | Done |
-| Real-time bid + outbid socket events | Done |
-| Bidder dashboard UI | Done (mock data) |
-| Payment receipt link (to JSP) | Done |
-| Auth (login / register UI) | In progress |
-| Proxy bid UI → backend wiring | In progress |
-| Dashboard → real API wiring | In progress |
+| `placeProxyBid(auctionId, maxBid)` | POST | `/api/bids/:auctionId/proxy` | Set/update proxy max bid |
+| `fetchEscrow(auctionId)` | GET | `/api/escrow/auction/:auctionId` | Get escrow record for a won auction |
+| `createAuction(payload)` | POST | `/api/auctions` | Create a new listing |
+| `getSellerListings()` | GET | `/api/auctions?seller=me` | Fetch all listings for the logged-in seller |
+| `uploadImage(file)` | POST | `/api/upload` | Upload an image file, returns its URL |

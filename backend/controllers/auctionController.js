@@ -3,8 +3,7 @@ const { performClose } = require('../services/auctionService');
 
 const createAuction = async (req, res, next) => {
   try {
-    const { title, description, images, startingPrice, reservePrice, auctionEndTime, category } =
-      req.body;
+    const { title, description, images, startingPrice, reservePrice, auctionEndTime, category } = req.body;
 
     if (!title || !description || startingPrice == null || !auctionEndTime) {
       return res

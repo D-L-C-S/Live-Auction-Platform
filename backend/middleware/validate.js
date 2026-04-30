@@ -10,6 +10,9 @@ const validateBid = async (req, res, next) => {
     if (auction.status !== 'active') {
       return res.status(400).json({ message: 'Auction is not active' });
     }
+    if (auction.seller.equals(req.user._id)) {
+      return res.status(403).json({ message: 'You cannot bid on your own auction' });
+    }
     if (new Date() > auction.endTime) {
       return res.status(400).json({ message: 'Auction has ended' });
     }

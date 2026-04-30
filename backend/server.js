@@ -10,16 +10,22 @@ const auctionRoutes = require('./routes/auctionRoutes');
 const bidRoutes = require('./routes/bidRoutes');
 const escrowRoutes = require('./routes/escrowRoutes');
 const bidderRoutes = require('./routes/bidderRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 const { startScheduler } = require('./services/auctionScheduler');
+const { cleanOrphanedUploads } = require('./services/uploadCleanup');
 
 const app = express();
 const server = http.createServer(app);
 
 const socketMiddleware = initSocket(server);
 
-connectDB().then(() => startScheduler());
+connectDB().then(() => {
+  startScheduler();
+  cleanOrphanedUploads();
+});
 
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+app.use('/uploads', express.static(require('node:path').join(__dirname, 'uploads')));
 app.use(express.json());
 app.use(socketMiddleware);
 
@@ -28,6 +34,7 @@ app.use('/api/auctions', auctionRoutes);
 app.use('/api/bids', bidRoutes);
 app.use('/api/escrow', escrowRoutes);
 app.use('/api/bidders', bidderRoutes);
+app.use('/api/upload', uploadRoutes);
 
 app.use((err, _req, res, _next) => {
   const status = err.status || 500;

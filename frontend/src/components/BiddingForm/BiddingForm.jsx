@@ -1,15 +1,9 @@
 import React, { useState } from 'react';
 
 function formatAmount(n) {
-  return '$' + Number(n).toLocaleString('en-US');
+  return '₹' + Number(n).toLocaleString('en-IN');
 }
 
-// Props:
-//   onPlaceBid(amount, proxyMax) — called when user submits
-//   disabled — true when auction is closed
-//   currentHighestBid — current top bid (null if no bids yet)
-//   startingPrice — minimum first bid
-//   isSubmitting — true while API call is in flight
 export default function BiddingForm({
   onPlaceBid,
   disabled,
@@ -23,12 +17,16 @@ export default function BiddingForm({
 
   const minimumBid = currentHighestBid ? currentHighestBid + 1 : startingPrice;
 
+  const proxyError = proxyMax && amount && Number.parseFloat(proxyMax) < Number.parseFloat(amount)
+    ? 'Proxy max must be greater than or equal to your bid.'
+    : '';
+
   function handleSubmit(e) {
     e.preventDefault();
     setError('');
 
-    const numAmount = parseFloat(amount);
-    if (!amount || isNaN(numAmount)) {
+    const numAmount = Number.parseFloat(amount);
+    if (!amount || Number.isNaN(numAmount)) {
       setError('Please enter a valid bid amount.');
       return;
     }
@@ -36,12 +34,9 @@ export default function BiddingForm({
       setError(`Bid must be at least ${formatAmount(minimumBid)}.`);
       return;
     }
-    if (proxyMax && parseFloat(proxyMax) < numAmount) {
-      setError('Proxy max must be greater than or equal to your bid.');
-      return;
-    }
+    if (proxyError) return;
 
-    onPlaceBid(numAmount, proxyMax ? parseFloat(proxyMax) : null);
+    onPlaceBid(numAmount, proxyMax ? Number.parseFloat(proxyMax) : null);
     setAmount('');
     setProxyMax('');
   }
@@ -59,11 +54,11 @@ export default function BiddingForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Your Bid
-          <span className="text-gray-400 font-normal ml-1">(min {formatAmount(minimumBid)})</span>
+          Your Bid{' '}
+          <span className="text-gray-400 font-normal">(min {formatAmount(minimumBid)})</span>
         </label>
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">$</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">₹</span>
           <input
             type="number"
             min={minimumBid}
@@ -79,11 +74,11 @@ export default function BiddingForm({
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Proxy Max Bid
-          <span className="text-gray-400 font-normal ml-1">(optional — auto-bids up to this limit)</span>
+          Proxy Max Bid{' '}
+          <span className="text-gray-400 font-normal">(optional — auto-bids up to this limit)</span>
         </label>
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">$</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">₹</span>
           <input
             type="number"
             min={minimumBid}
@@ -92,9 +87,10 @@ export default function BiddingForm({
             onChange={(e) => setProxyMax(e.target.value)}
             placeholder="Optional"
             disabled={isSubmitting}
-            className="w-full pl-7 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            className={`w-full pl-7 pr-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 ${proxyError ? 'border-red-400' : 'border-gray-300'}`}
           />
         </div>
+        {proxyError && <p className="text-red-600 text-sm font-medium mt-1">{proxyError}</p>}
       </div>
 
       {error && (
@@ -103,7 +99,7 @@ export default function BiddingForm({
 
       <button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || !!proxyError}
         className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
       >
         {isSubmitting ? 'Placing Bid…' : 'Place Bid'}

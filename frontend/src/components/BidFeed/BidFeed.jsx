@@ -1,7 +1,7 @@
 import React from 'react';
 
 function formatAmount(n) {
-  return '$' + Number(n).toLocaleString('en-US');
+  return '₹' + Number(n).toLocaleString('en-IN');
 }
 
 // Shows a relative timestamp like "2m ago" or "just now"
@@ -21,11 +21,11 @@ function shortName(bidder) {
 }
 
 // bids prop: [{ bidder, amount, placedAt }] — newest first
-export default function BidFeed({ bids }) {
+export default function BidFeed({ bids, isSeller }) {
   if (!bids || bids.length === 0) {
     return (
       <div className="text-center py-8 text-gray-400 text-sm">
-        No bids yet. Be the first to bid!
+        {isSeller ? 'No bids yet.' : 'No bids yet. Be the first to bid!'}
       </div>
     );
   }

@@ -7,6 +7,7 @@ const auctionSchema = new mongoose.Schema(
     images: [String],
     seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     startingPrice: { type: Number, required: true, min: 0 },
+    reservePrice: { type: Number, default: null },
     currentHighestBid: { type: Number, default: null },
     currentHighestBidder: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     startTime: { type: Date, required: true },
@@ -17,7 +18,6 @@ const auctionSchema = new mongoose.Schema(
       default: 'pending',
     },
     winner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-    reservePrice: { type: Number, default: null },
     category: { type: String, trim: true },
   },
   { timestamps: true }

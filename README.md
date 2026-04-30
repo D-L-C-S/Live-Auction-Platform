@@ -1,6 +1,6 @@
 # Live Auction Platform
 
-A real-time auction platform built with the MERN stack, Socket.io, and Stripe escrow. Buyers browse live listings, place bids that broadcast instantly to all participants, and pay through a held escrow that releases only after delivery is confirmed.
+A real-time auction platform built with the MERN stack and Socket.io. Sellers list items with photos, buyers place live bids that broadcast instantly to all participants, and a simple escrow releases funds to the seller once the buyer confirms delivery.
 
 ## Tech Stack
 
@@ -9,7 +9,7 @@ A real-time auction platform built with the MERN stack, Socket.io, and Stripe es
 | Database | MongoDB + Mongoose |
 | Backend | Node.js, Express |
 | Real-time | Socket.io |
-| Payments | Stripe (manual capture / escrow) |
+| File uploads | Multer |
 | Frontend | React 18, Vite, Tailwind CSS |
 | Documents | JSP (Jakarta EE) — receipt & certificate |
 
@@ -21,17 +21,17 @@ A real-time auction platform built with the MERN stack, Socket.io, and Stripe es
 └── jsp/              # Jakarta EE pages for printable documents
 ```
 
-See each subdirectory for its own README with setup, environment variables, and implementation status.
+See each subdirectory for its own README with setup, environment variables, and API details.
 
 ## Quick Start
 
-Both servers must run concurrently. Vite proxies `/api` requests to Express, so no CORS configuration is needed in development.
+Both servers must run concurrently. Vite proxies `/api` and `/uploads` requests to Express, so no CORS configuration is needed in development.
 
 **Backend** (port 5000)
 
 ```bash
 cd backend
-cp .env.example .env   # fill in MONGO_URI, JWT_SECRET, STRIPE keys
+cp .env.example .env   # fill in MONGO_URI and JWT_SECRET
 npm install
 npm run dev
 ```
@@ -40,9 +40,8 @@ npm run dev
 
 ```bash
 cd frontend
-cp .env.example .env   # set VITE_SOCKET_URL if not localhost:5000
 npm install
-npm run dev
+npm run dev            # browser opens automatically
 ```
 
 **JSP documents** — served separately by a Jakarta EE container (e.g. Tomcat). See [jsp/README.md](jsp/README.md).
@@ -53,13 +52,15 @@ npm run dev
 | --- | --- |
 | Browse live auction listings | Done |
 | Real-time bid feed via WebSocket | Done |
-| Bid validation (amount, auction state, end time) | Done |
+| Bid validation (amount, auction state, end time, not own auction) | Done |
+| Proxy bidding (auto-increment to max) | Done |
+| Reserve price — auction closes without a winner if reserve not met | Done |
 | Outbid toast notification | Done |
 | Countdown timer per auction | Done |
-| Bidder dashboard with active bids and won auctions | Done (mock data) |
-| Auth — register, login, JWT sessions | In progress |
-| Auction CRUD (create, list, close) | In progress |
-| Proxy bid (auto-increment to max) | In progress |
-| Stripe escrow — hold, release, refund | In progress |
-| Payment receipt (JSP) | Done |
-| Auction certificate (JSP) | In progress |
+| Image upload (drag & drop or file picker, 5 MB limit) | Done |
+| Seller dashboard — create listings, view real escrow status | Done |
+| Bidder dashboard — active bids and won auctions with escrow | Done |
+| Auth — register, login, JWT sessions | Done |
+| Auction CRUD (create, list, close) | Done |
+| Manual escrow — hold on close, release on delivery confirmation | Done |
+| Auction certificate (JSP) | Done |

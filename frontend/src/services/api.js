@@ -95,10 +95,27 @@ export async function placeBid(auctionId, amount) {
   return data;
 }
 
+// POST /api/bids/:auctionId/proxy — sets a proxy max bid; auto-bids up to maxBid
+export async function placeProxyBid(auctionId, maxBid) {
+  const { data } = await axios.post(`/api/bids/${auctionId}/proxy`, { maxBid }, { headers: getAuthHeaders() });
+  return data;
+}
+
 // GET /api/escrow/auction/:auctionId — fetch escrow status for a won auction
 export async function fetchEscrow(auctionId) {
   const { data } = await axios.get(`/api/escrow/auction/${auctionId}`, { headers: getAuthHeaders() });
   return data.escrow;
+}
+
+// POST /api/upload — upload an image file, returns { url }
+export async function uploadImage(file) {
+  const formData = new FormData();
+  formData.append('image', file);
+  const token = localStorage.getItem('token');
+  const { data } = await axios.post('/api/upload', formData, {
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  return data.url;
 }
 
 // POST /api/auctions — create a new auction listing

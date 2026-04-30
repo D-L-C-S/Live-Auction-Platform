@@ -8,12 +8,17 @@ const performClose = async (auction, io) => {
 
   const room = auction._id.toString();
 
-  if (!auction.currentHighestBidder) {
+  const reserveMet =
+    !auction.reservePrice ||
+    (auction.currentHighestBid != null && auction.currentHighestBid >= auction.reservePrice);
+
+  if (!auction.currentHighestBidder || !reserveMet) {
     await auction.save();
     io.to(room).emit('auction_closed', {
       auctionId: auction._id,
       winnerId: null,
       finalAmount: null,
+      reserveMet,
     });
     return { auction };
   }
@@ -33,6 +38,7 @@ const performClose = async (auction, io) => {
     auctionId: auction._id,
     winnerId: auction.winner,
     finalAmount: auction.currentHighestBid,
+    reserveMet: true,
   });
 
   return { auction };

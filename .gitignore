@@ -5,3 +5,7 @@ build/
 *.log
 .DS_Store
 .claude/
+
+# Uploaded files — keep the folder, ignore the contents
+backend/uploads/*
+!backend/uploads/.gitkeep

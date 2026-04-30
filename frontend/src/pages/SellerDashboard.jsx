@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { createAuction, getSellerListings, fetchEscrow } from "../services/api";
+import { useState, useEffect, useRef } from "react";
+import { createAuction, getSellerListings, fetchEscrow, uploadImage } from "../services/api";
 
 const STATUS_STYLES = {
   active:  { bg: "#ecfdf5", color: "#166534" },
@@ -15,14 +15,34 @@ function fmt(n) {
 
 function CreateListingForm({ onSuccess }) {
   const [form, setForm] = useState({
-    title: "", description: "", images: "",
+    title: "", description: "",
     startingPrice: "", reservePrice: "",
     endDate: "", endTime: "",
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const fileInputRef = useRef(null);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const handleFile = (file) => {
+    if (!file?.type.startsWith("image/")) {
+      setError("Please select a valid image file.");
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    setError("");
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    handleFile(e.dataTransfer.files[0]);
+  };
 
   const handleSubmit = async () => {
     setError("");
@@ -31,18 +51,22 @@ function CreateListingForm({ onSuccess }) {
       return;
     }
 
-    const payload = {
-      title: form.title,
-      description: form.description,
-      images: form.images.split(",").map((s) => s.trim()).filter(Boolean),
-      startingPrice: Number(form.startingPrice),
-      reservePrice: form.reservePrice ? Number(form.reservePrice) : null,
-      auctionEndTime: `${form.endDate}T${form.endTime}:00.000Z`,
-    };
-
     setLoading(true);
     try {
-      const newAuction = await createAuction(payload);
+      let images = [];
+      if (imageFile) {
+        const url = await uploadImage(imageFile);
+        images = [url];
+      }
+
+      const newAuction = await createAuction({
+        title: form.title,
+        description: form.description,
+        images,
+        startingPrice: Number(form.startingPrice),
+        reservePrice: form.reservePrice ? Number(form.reservePrice) : null,
+        auctionEndTime: `${form.endDate}T${form.endTime}:00.000Z`,
+      });
       onSuccess(newAuction);
     } catch (err) {
       setError(err.message || "Failed to create listing.");
@@ -55,7 +79,6 @@ function CreateListingForm({ onSuccess }) {
     <div style={styles.card}>
       <div style={styles.sectionHeader}>
         <span style={styles.sectionTitle}>New listing</span>
-        <code style={styles.endpointTag}>POST /api/auctions</code>
       </div>
 
       {error && <div style={styles.errorBar}>{error}</div>}
@@ -71,8 +94,35 @@ function CreateListingForm({ onSuccess }) {
       </div>
 
       <div style={styles.fieldFull}>
-        <label style={styles.label}>Image URLs (comma-separated)</label>
-        <input style={styles.input} value={form.images} onChange={set("images")} placeholder="https://cdn.example.com/img1.jpg, ..." />
+        <label style={styles.label}>Item photo</label>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          style={{
+            ...styles.dropZone,
+            borderColor: dragging ? "#6366f1" : "#d1d5db",
+            background: dragging ? "#eef2ff" : "#f9fafb",
+          }}
+        >
+          {imagePreview ? (
+            <img src={imagePreview} alt="preview" style={{ maxHeight: 160, maxWidth: "100%", borderRadius: 8, objectFit: "cover" }} />
+          ) : (
+            <div style={{ textAlign: "center", color: "#9ca3af" }}>
+              <div style={{ fontSize: 28, marginBottom: 6 }}>📷</div>
+              <div style={{ fontSize: 13 }}>Drag & drop or <span style={{ color: "#6366f1", fontWeight: 500 }}>click to select</span></div>
+              <div style={{ fontSize: 11, marginTop: 4 }}>PNG, JPG, WEBP up to 5 MB</div>
+            </div>
+          )}
+        </button>
+        <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => handleFile(e.target.files[0])} />
+        {imagePreview && (
+          <button onClick={() => { setImageFile(null); setImagePreview(null); }} style={{ ...styles.btnOutline, marginTop: 6, fontSize: 11, padding: "4px 10px" }}>
+            Remove photo
+          </button>
+        )}
       </div>
 
       <div style={styles.row}>
@@ -82,7 +132,7 @@ function CreateListingForm({ onSuccess }) {
         </div>
         <div style={styles.fieldHalf}>
           <label style={styles.label}>Reserve price (₹)</label>
-          <input style={styles.input} type="number" min="0" value={form.reservePrice} onChange={set("reservePrice")} placeholder="8000" />
+          <input style={styles.input} type="number" min="0" value={form.reservePrice} onChange={set("reservePrice")} placeholder="Optional — auction won't sell below this" />
         </div>
       </div>
 
@@ -95,12 +145,6 @@ function CreateListingForm({ onSuccess }) {
           <label style={styles.label}>End time *</label>
           <input style={styles.input} type="time" value={form.endTime} onChange={set("endTime")} />
         </div>
-      </div>
-
-      <div style={styles.payloadHint}>
-        Sends → <code style={{ fontFamily: "monospace", fontSize: 12 }}>
-          {"{ title, description, images[], startingPrice, reservePrice, auctionEndTime }"}
-        </code>
       </div>
 
       <button style={{ ...styles.btnPrimary, opacity: loading ? 0.6 : 1 }} onClick={handleSubmit} disabled={loading}>
@@ -133,7 +177,7 @@ function ListingsTable({ listings }) {
       <table style={styles.table}>
         <thead>
           <tr>
-            {["Item", "Starting", "Reserve", "Current bid", "Ends in", "Status", "Escrow"].map((h) => (
+            {["Item", "Starting", "Current bid", "Ends in", "Status", "Escrow"].map((h) => (
               <th key={h} style={styles.th}>{h}</th>
             ))}
           </tr>
@@ -143,7 +187,6 @@ function ListingsTable({ listings }) {
             <tr key={l.id}>
               <td style={{ ...styles.td, fontWeight: 500 }}>{l.title}</td>
               <td style={styles.td}>{fmt(l.startingPrice)}</td>
-              <td style={styles.td}>{fmt(l.reservePrice)}</td>
               <td style={{ ...styles.td, color: l.status === "active" ? "#166534" : "inherit", fontWeight: l.status === "active" ? 500 : 400 }}>
                 {fmt(l.currentBid)}
               </td>
@@ -182,7 +225,6 @@ function toRow(a) {
     id:            a._id,
     title:         a.title,
     startingPrice: a.startingPrice,
-    reservePrice:  a.reservePrice ?? 0,
     currentBid:    a.currentHighestBid ?? a.startingPrice,
     endsIn:        timeUntil(a.endTime),
     status:        a.status ?? "active",
@@ -266,7 +308,6 @@ export default function SellerDashboard() {
           </div>
           <div style={{ ...styles.sectionHeader, marginBottom: 12 }}>
             <span style={styles.sectionTitle}>My listings</span>
-            <code style={styles.endpointTag}>GET /api/auctions?seller=me</code>
           </div>
           {fetchLoading && (
             <div style={{ padding: "2rem", textAlign: "center", color: "#9ca3af", fontSize: 13 }}>
@@ -302,13 +343,12 @@ const styles = {
   th: { textAlign: "left", fontSize: 11, fontWeight: 500, color: "#9ca3af", padding: "6px 12px", borderBottom: "0.5px solid #e5e7eb", textTransform: "uppercase", letterSpacing: "0.04em" },
   td: { padding: "10px 12px", borderBottom: "0.5px solid #f3f4f6", verticalAlign: "middle", fontSize: 13 },
   badge: { display: "inline-block", padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 500 },
-  endpointTag: { fontFamily: "monospace", fontSize: 11, background: "#f3f4f6", border: "0.5px solid #e5e7eb", padding: "3px 7px", borderRadius: 4, color: "#6b7280" },
   label: { fontSize: 12, color: "#6b7280", fontWeight: 500, marginBottom: 4, display: "block" },
   input: { fontSize: 13, padding: "8px 10px", border: "0.5px solid #d1d5db", borderRadius: 8, background: "#fff", color: "#111827", width: "100%", boxSizing: "border-box" },
   row: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 },
   fieldFull: { marginBottom: 12 },
   fieldHalf: {},
-  payloadHint: { background: "#f9fafb", borderRadius: 8, padding: "10px 12px", fontSize: 12, color: "#6b7280", marginBottom: 12 },
+  dropZone: { width: "100%", border: "1.5px dashed #d1d5db", borderRadius: 10, padding: "1.5rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 120, transition: "border-color 0.15s, background 0.15s", boxSizing: "border-box", background: "none" },
   btnPrimary: { background: "#111827", color: "#fff", border: "none", padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: "pointer", width: "100%" },
   btnOutline: { fontSize: 12, fontWeight: 500, padding: "7px 14px", border: "0.5px solid #d1d5db", borderRadius: 8, background: "none", color: "#111827", cursor: "pointer" },
   successBar: { background: "#ecfdf5", border: "0.5px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#166534", marginBottom: "1rem" },

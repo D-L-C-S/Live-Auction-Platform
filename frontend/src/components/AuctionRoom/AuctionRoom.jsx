@@ -2,11 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import CountdownTimer from '../CountdownTimer/CountdownTimer';
 import BidFeed from '../BidFeed/BidFeed';
 import BiddingForm from '../BiddingForm/BiddingForm';
-import { placeBid } from '../../services/api';
+import { placeBid, placeProxyBid } from '../../services/api';
 
 function formatAmount(n) {
   if (n == null) return '—';
-  return '$' + Number(n).toLocaleString('en-US');
+  return '₹' + Number(n).toLocaleString('en-IN');
 }
 
 // Props:
@@ -35,6 +35,9 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
   const [winner, setWinner] = useState(auction.winner || auction.currentHighestBidder);
   const [finalAmount, setFinalAmount] = useState(
     auction.status === 'closed' ? auction.currentHighestBid : null
+  );
+  const [reserveMet, setReserveMet] = useState(
+    auction.status !== 'closed' || !!auction.winner
   );
   const [outbidAlert, setOutbidAlert] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -104,6 +107,7 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
     function handleAuctionClosed(data) {
       if (data.auctionId !== auction._id) return;
       setIsClosed(true);
+      setReserveMet(data.reserveMet !== false);
       if (data.winnerId) setWinner({ _id: data.winnerId });
       if (data.finalAmount != null) setFinalAmount(data.finalAmount);
     }
@@ -123,16 +127,23 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
 
   function handleExpired() {
     setIsClosed(true);
-    setWinner(currentHighestBidder);
-    setFinalAmount(currentHighestBid);
+    const met = !auction.reservePrice || (currentHighestBid != null && currentHighestBid >= auction.reservePrice);
+    setReserveMet(met);
+    if (met) {
+      setWinner(currentHighestBidder);
+      setFinalAmount(currentHighestBid);
+    }
   }
 
   async function handlePlaceBid(amount, proxyMax) {
     setBidError('');
     setIsSubmitting(true);
     try {
-      await placeBid(auction._id, amount);
-      // Optimistic update — real update comes via socket new_bid event
+      if (proxyMax) {
+        await placeProxyBid(auction._id, proxyMax);
+      } else {
+        await placeBid(auction._id, amount);
+      }
       const entry = {
         _id: `local-${Date.now()}`,
         bidder: { _id: currentUserId, name: 'You' },
@@ -150,7 +161,8 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
     }
   }
 
-  const imageUrl = auction.images?.[0];
+  const [imgError, setImgError] = useState(false);
+  const imageUrl = !imgError && auction.images?.[0];
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -163,15 +175,18 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
 
       {/* Auction closed / winner banner */}
       {isClosed && (
-        <div className="mb-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-2xl px-6 py-5 text-center shadow-lg">
+        <div className={`mb-6 text-white rounded-2xl px-6 py-5 text-center shadow-lg bg-gradient-to-r ${reserveMet ? 'from-purple-600 to-blue-600' : 'from-gray-600 to-gray-500'}`}>
           <p className="text-lg font-bold">Auction Closed</p>
-          {winner && (
+          {reserveMet && winner && (
             <p className="text-sm mt-1 opacity-90">
               Winner: <span className="font-semibold">{winner.name || winner._id || String(winner)}</span>
               {finalAmount && (
                 <span> — Final bid: <span className="font-semibold">{formatAmount(finalAmount)}</span></span>
               )}
             </p>
+          )}
+          {reserveMet || (
+            <p className="text-sm mt-1 opacity-90">Reserve price not met — item will not be sold.</p>
           )}
         </div>
       )}
@@ -182,7 +197,7 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
           {/* Image */}
           <div className="w-full h-64 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center">
             {imageUrl ? (
-              <img src={imageUrl} alt={auction.title} className="w-full h-full object-cover" />
+              <img src={imageUrl} alt={auction.title} className="w-full h-full object-cover" onError={() => setImgError(true)} />
             ) : (
               <div className="flex flex-col items-center text-gray-300">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -218,6 +233,23 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
             </div>
           </div>
 
+          {/* Reserve price — seller only */}
+          {String(auction.seller?._id || auction.seller) === String(currentUserId) && auction.reservePrice && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-amber-700 font-medium uppercase tracking-wide">Reserve Price</p>
+                <p className="text-base font-bold text-amber-800 mt-0.5">{formatAmount(auction.reservePrice)}</p>
+              </div>
+              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                currentHighestBid >= auction.reservePrice
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-red-100 text-red-700'
+              }`}>
+                {currentHighestBid >= auction.reservePrice ? 'Reserve met' : 'Reserve not met'}
+              </span>
+            </div>
+          )}
+
           {/* Current leader */}
           {currentHighestBidder && (
             <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
@@ -242,23 +274,31 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
             <h2 className="text-base font-semibold text-gray-800 mb-4">Live Bid History</h2>
-            <BidFeed bids={bids} />
+            <BidFeed bids={bids} isSeller={String(auction.seller?._id || auction.seller) === String(currentUserId)} />
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
             <h2 className="text-base font-semibold text-gray-800 mb-4">Place a Bid</h2>
-            {bidError && (
-              <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-red-700 text-sm">
-                {bidError}
+            {String(auction.seller?._id || auction.seller) === String(currentUserId) ? (
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center text-sm text-gray-500">
+                You are the seller of this item.
               </div>
+            ) : (
+              <>
+                {bidError && (
+                  <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-red-700 text-sm">
+                    {bidError}
+                  </div>
+                )}
+                <BiddingForm
+                  onPlaceBid={handlePlaceBid}
+                  disabled={isClosed}
+                  currentHighestBid={currentHighestBid}
+                  startingPrice={auction.startingPrice}
+                  isSubmitting={isSubmitting}
+                />
+              </>
             )}
-            <BiddingForm
-              onPlaceBid={handlePlaceBid}
-              disabled={isClosed}
-              currentHighestBid={currentHighestBid}
-              startingPrice={auction.startingPrice}
-              isSubmitting={isSubmitting}
-            />
           </div>
         </div>
       </div>
