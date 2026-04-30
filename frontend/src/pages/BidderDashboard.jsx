@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 
+function fmt(n) {
+  return '₹' + Number(n).toLocaleString('en-IN');
+}
+
 function escrowBadgeClass(status) {
   if (status === 'held') return 'bg-yellow-100 text-yellow-800';
   if (status === 'released') return 'bg-green-100 text-green-800';
@@ -88,12 +92,12 @@ export default function BidderDashboard() {
                 <h3 className="text-lg font-bold text-gray-900 mb-3 truncate">{bid.title}</h3>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm text-gray-500">Current Highest:</span>
-                  <span className="text-lg font-semibold text-gray-900">${bid.currentHighestBid}</span>
+                  <span className="text-lg font-semibold text-gray-900">{fmt(bid.currentHighestBid)}</span>
                 </div>
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-sm text-gray-500">Your Proxy Max:</span>
                   <span className="text-sm font-medium text-green-600">
-                    {bid.myMaxBid == null ? '—' : `$${bid.myMaxBid}`}
+                    {bid.myMaxBid == null ? '—' : fmt(bid.myMaxBid)}
                   </span>
                 </div>
                 <div className="text-xs text-gray-400 bg-gray-50 p-2 rounded">
@@ -117,7 +121,7 @@ export default function BidderDashboard() {
                 <h3 className="text-lg font-bold text-gray-900 mb-3 truncate">{auction.title}</h3>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm text-gray-600">Final Price:</span>
-                  <span className="text-lg font-bold text-gray-900">${auction.finalAmount}</span>
+                  <span className="text-lg font-bold text-gray-900">{fmt(auction.finalAmount)}</span>
                 </div>
                 <div className="flex justify-between items-center mb-6">
                   <span className="text-sm text-gray-600">Status:</span>
