@@ -10,12 +10,10 @@ import { SocketProvider } from './context/SocketContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// NavBar is a separate component so it can use useNavigate (requires BrowserRouter above it).
 function NavBar() {
   const { isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
-  // authUser is stored by LoginPage/RegisterPage after a successful auth call.
   const authUser = (() => {
     try {
       const raw = localStorage.getItem('authUser');
@@ -33,21 +31,32 @@ function NavBar() {
   };
 
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200">
+    <nav className="bg-[#0d0d14]/90 backdrop-blur-md border-b border-[#2a2a3d] sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center gap-8">
-            <Link to="/" className="text-2xl font-bold text-blue-600 tracking-tight">
+            <Link
+              to="/"
+              className="text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-fuchsia-400 to-blue-400 bg-clip-text text-transparent hover:from-violet-300 hover:to-blue-300 transition-all duration-200"
+            >
               BidMaster
             </Link>
-            {/* Nav links — only show when authenticated */}
+
             {isAuthenticated && (
-              <div className="hidden sm:flex items-center gap-6 text-sm font-medium text-gray-600">
-                <Link to="/auctions" className="hover:text-blue-600 transition-colors">
+              <div className="hidden sm:flex items-center gap-6 text-sm font-medium">
+                <Link
+                  to="/auctions"
+                  className="text-gray-400 hover:text-violet-400 transition-colors duration-150 relative group"
+                >
                   Browse Auctions
+                  <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-gradient-to-r from-violet-500 to-blue-500 group-hover:w-full transition-all duration-200" />
                 </Link>
-                <Link to="/seller" className="hover:text-blue-600 transition-colors">
+                <Link
+                  to="/seller"
+                  className="text-gray-400 hover:text-violet-400 transition-colors duration-150 relative group"
+                >
                   Sell
+                  <span className="absolute -bottom-0.5 left-0 w-0 h-px bg-gradient-to-r from-violet-500 to-blue-500 group-hover:w-full transition-all duration-200" />
                 </Link>
               </div>
             )}
@@ -56,22 +65,25 @@ function NavBar() {
           <div className="flex items-center gap-4 text-sm font-medium">
             {isAuthenticated ? (
               <>
-                <span className="text-gray-600">{displayName}</span>
+                <span className="text-gray-400 hidden sm:block">{displayName}</span>
                 <button
                   onClick={handleLogout}
-                  className="text-gray-500 hover:text-red-600 transition-colors"
+                  className="text-gray-500 hover:text-red-400 transition-colors duration-150 border border-[#2a2a3d] hover:border-red-500/40 px-3 py-1.5 rounded-lg"
                 >
                   Sign out
                 </button>
               </>
             ) : (
               <>
-                <Link to="/login" className="text-gray-600 hover:text-blue-600 transition-colors">
+                <Link
+                  to="/login"
+                  className="text-gray-400 hover:text-violet-400 transition-colors duration-150"
+                >
                   Sign in
                 </Link>
                 <Link
                   to="/register"
-                  className="bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
+                  className="btn-gradient px-4 py-1.5 rounded-lg text-sm"
                 >
                   Register
                 </Link>
@@ -89,19 +101,16 @@ function App() {
     <AuthProvider>
       <SocketProvider>
         <BrowserRouter>
-          <div className="min-h-screen bg-gray-50">
+          <div className="min-h-screen bg-[#0d0d14]">
             <NavBar />
             <main>
               <Routes>
-                {/* Public routes */}
-                <Route path="/login" element={<LoginPage />} />
+                <Route path="/login"    element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
-
-                {/* Protected routes */}
-                <Route path="/" element={<ProtectedRoute><BidderDashboard /></ProtectedRoute>} />
+                <Route path="/"         element={<ProtectedRoute><BidderDashboard /></ProtectedRoute>} />
                 <Route path="/auctions" element={<ProtectedRoute><AuctionListingPage /></ProtectedRoute>} />
                 <Route path="/auctions/:id" element={<ProtectedRoute><AuctionPage /></ProtectedRoute>} />
-                <Route path="/seller" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
+                <Route path="/seller"   element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
               </Routes>
             </main>
           </div>

@@ -1,13 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-// Calculates remaining time from now until endTime and calls onExpired when done
 function getTimeLeft(endTime) {
   const diff = new Date(endTime).getTime() - Date.now();
   if (diff <= 0) return null;
   const totalSeconds = Math.floor(diff / 1000);
   return {
-    days: Math.floor(totalSeconds / 86400),
-    hours: Math.floor((totalSeconds % 86400) / 3600),
+    days:    Math.floor(totalSeconds / 86400),
+    hours:   Math.floor((totalSeconds % 86400) / 3600),
     minutes: Math.floor((totalSeconds % 3600) / 60),
     seconds: totalSeconds % 60,
     totalMs: diff,
@@ -15,10 +14,9 @@ function getTimeLeft(endTime) {
 }
 
 export default function CountdownTimer({ endTime, onExpired }) {
-  const [timeLeft, setTimeLeft] = useState(() => getTimeLeft(endTime));
-  const expiredCalled = useRef(false);
-  // Keep a ref so the interval always calls the latest onExpired without restarting
-  const onExpiredRef = useRef(onExpired);
+  const [timeLeft,      setTimeLeft]      = useState(() => getTimeLeft(endTime));
+  const expiredCalled   = useRef(false);
+  const onExpiredRef    = useRef(onExpired);
   useEffect(() => { onExpiredRef.current = onExpired; });
 
   useEffect(() => {
@@ -40,19 +38,19 @@ export default function CountdownTimer({ endTime, onExpired }) {
 
   if (!timeLeft) {
     return (
-      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gray-200 text-gray-600">
-        Auction Closed
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-700/60 text-gray-400 border border-gray-600/40">
+        Closed
       </span>
     );
   }
 
-  // Color shifts: green → yellow → red as deadline approaches
+  // Color shifts as deadline approaches
   const colorClass =
-    timeLeft.totalMs > 3600000
-      ? 'bg-green-100 text-green-800'
-      : timeLeft.totalMs > 300000
-      ? 'bg-yellow-100 text-yellow-800'
-      : 'bg-red-100 text-red-800';
+    timeLeft.totalMs > 3_600_000
+      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+      : timeLeft.totalMs > 300_000
+      ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+      : 'bg-red-500/15 text-red-400 border border-red-500/30 animate-pulse';
 
   const pad = (n) => String(n).padStart(2, '0');
 
@@ -63,7 +61,7 @@ export default function CountdownTimer({ endTime, onExpired }) {
   parts.push(`${pad(timeLeft.seconds)}s`);
 
   return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${colorClass}`}>
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold font-mono ${colorClass}`}>
       {parts.join(' ')}
     </span>
   );

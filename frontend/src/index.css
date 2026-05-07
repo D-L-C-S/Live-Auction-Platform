@@ -1,3 +1,75 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html, body {
+    @apply bg-[#0d0d14] text-gray-100;
+    -webkit-font-smoothing: antialiased;
+    color-scheme: dark;
+  }
+
+  /* Native date/time/select inputs inherit dark color-scheme */
+  select, input[type="date"], input[type="time"] {
+    color-scheme: dark;
+  }
+
+  /* Custom scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #4f46e5 #0d0d14;
+  }
+  *::-webkit-scrollbar       { width: 5px; height: 5px; }
+  *::-webkit-scrollbar-track { background: #0d0d14; }
+  *::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 4px; }
+}
+
+@layer components {
+  /* Dark card surface */
+  .card-dark {
+    @apply bg-[#161622] border border-[#2a2a3d] rounded-2xl;
+  }
+
+  /* Gradient text utility */
+  .gradient-text {
+    @apply bg-gradient-to-r from-violet-400 via-fuchsia-400 to-blue-400 bg-clip-text text-transparent;
+  }
+
+  /* Gradient button */
+  .btn-gradient {
+    @apply bg-gradient-to-r from-violet-600 to-blue-600
+           hover:from-violet-500 hover:to-blue-500
+           text-white font-semibold
+           transition-all duration-200
+           hover:shadow-lg hover:shadow-violet-500/30
+           active:scale-[0.98];
+  }
+
+  /* Dark input */
+  .input-dark {
+    @apply bg-[#1e1e2e] border border-[#2a2a3d] text-gray-100
+           placeholder-gray-600 rounded-lg px-3 py-2 text-sm
+           focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50
+           transition-colors duration-150;
+  }
+
+  /* Hover-lift card */
+  .hover-lift {
+    @apply transition-all duration-200
+           hover:-translate-y-1
+           hover:shadow-xl hover:shadow-black/50
+           hover:border-[#3a3a5c];
+  }
+}
+
+/* Animated gradient background for auth pages */
+.auth-bg {
+  background: linear-gradient(135deg, #0d0d14 0%, #12102a 40%, #0d1a2a 100%);
+  background-size: 200% 200%;
+  animation: gradient-x 10s ease infinite;
+}
+
+/* Glow ring on focused inputs */
+.input-dark:focus {
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
