@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import CountdownTimer from '../CountdownTimer/CountdownTimer';
 import BidFeed from '../BidFeed/BidFeed';
 import BiddingForm from '../BiddingForm/BiddingForm';
@@ -9,94 +10,67 @@ function formatAmount(n) {
   return '₹' + Number(n).toLocaleString('en-IN');
 }
 
-// Props:
-//   auction — auction object from API or mock
-//   socket  — socket.io-client instance (may be null if not yet connected)
-//   currentUserId — MongoDB _id of the logged-in user, from AuthContext
 export default function AuctionRoom({ auction, socket, currentUserId }) {
   const [bids, setBids] = useState(() => {
-    // Seed the feed with the existing highest bid if one exists
     if (auction.currentHighestBid && auction.currentHighestBidder) {
-      return [
-        {
-          _id: 'seed',
-          bidder: auction.currentHighestBidder,
-          amount: auction.currentHighestBid,
-          placedAt: auction.updatedAt || auction.startTime,
-        },
-      ];
+      return [{
+        _id:      'seed',
+        bidder:   auction.currentHighestBidder,
+        amount:   auction.currentHighestBid,
+        placedAt: auction.updatedAt || auction.startTime,
+      }];
     }
     return [];
   });
 
-  const [currentHighestBid, setCurrentHighestBid] = useState(auction.currentHighestBid);
+  const [currentHighestBid,    setCurrentHighestBid]    = useState(auction.currentHighestBid);
   const [currentHighestBidder, setCurrentHighestBidder] = useState(auction.currentHighestBidder);
-  const [isClosed, setIsClosed] = useState(auction.status === 'closed');
-  const [winner, setWinner] = useState(auction.winner || auction.currentHighestBidder);
-  const [finalAmount, setFinalAmount] = useState(
+  const [isClosed,             setIsClosed]             = useState(auction.status === 'closed');
+  const [winner,               setWinner]               = useState(auction.winner || auction.currentHighestBidder);
+  const [finalAmount,          setFinalAmount]          = useState(
     auction.status === 'closed' ? auction.currentHighestBid : null
   );
-  const [reserveMet, setReserveMet] = useState(
-    auction.status !== 'closed' || !!auction.winner
-  );
+  const [reserveMet,  setReserveMet]  = useState(auction.status !== 'closed' || !!auction.winner);
   const [outbidAlert, setOutbidAlert] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [bidError, setBidError] = useState('');
+  const [bidError,    setBidError]    = useState('');
   const outbidTimer = useRef(null);
 
-  //fetch existing bid history on loading this
   useEffect(() => {
     const fetchBidHistory = async () => {
       try {
         const response = await fetch(`/api/bids/${auction._id}`);
-        if (!response.ok) throw new Error("Failed to fetch history");
-        
+        if (!response.ok) throw new Error('Failed to fetch history');
         const historyData = await response.json();
-        
         if (historyData && historyData.length > 0) {
-          // Format the backend data to perfectly match Charan's UI structure
-          const formattedHistory = historyData.map(bid => ({
-            _id: bid._id,
-            bidder: bid.bidder, // Keep as-is so Charan's logic handles object vs string
-            amount: bid.amount,
-            placedAt: bid.createdAt || bid.timestamp 
-          }));
-          
-          setBids(formattedHistory);
+          setBids(historyData.map(bid => ({
+            _id:      bid._id,
+            bidder:   bid.bidder,
+            amount:   bid.amount,
+            placedAt: bid.createdAt || bid.timestamp,
+          })));
         }
       } catch (error) {
-        console.error("Error loading bid history:", error);
+        console.error('Error loading bid history:', error);
       }
     };
-
     fetchBidHistory();
   }, [auction._id]);
-  
 
-  // Join auction socket room and wire up real-time events
   useEffect(() => {
     if (!socket) return;
-
     socket.emit('join_room', auction._id);
 
     function handleNewBid(data) {
       if (data.auctionId !== auction._id) return;
-      // Skip echo of our own bid — already added optimistically in handlePlaceBid
       if (String(data.bidder) === String(currentUserId)) return;
-      const entry = {
-        _id: data.bidId,
-        bidder: data.bidder,
-        amount: data.amount,
-        placedAt: data.placedAt,
-      };
-      setBids((prev) => [entry, ...prev]);
+      setBids((prev) => [{ _id: data.bidId, bidder: data.bidder, amount: data.amount, placedAt: data.placedAt }, ...prev]);
       setCurrentHighestBid(data.amount);
       setCurrentHighestBidder(data.bidder);
     }
 
     function handleOutbid(data) {
       if (data.auctionId !== auction._id) return;
-      // Only show the toast to the user who was outbid
       if (String(data.outbidUserId) === String(currentUserId)) {
         setOutbidAlert(true);
         clearTimeout(outbidTimer.current);
@@ -108,18 +82,18 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
       if (data.auctionId !== auction._id) return;
       setIsClosed(true);
       setReserveMet(data.reserveMet !== false);
-      if (data.winnerId) setWinner({ _id: data.winnerId });
+      if (data.winnerId)          setWinner({ _id: data.winnerId });
       if (data.finalAmount != null) setFinalAmount(data.finalAmount);
     }
 
-    socket.on('new_bid', handleNewBid);
-    socket.on('outbid', handleOutbid);
+    socket.on('new_bid',        handleNewBid);
+    socket.on('outbid',         handleOutbid);
     socket.on('auction_closed', handleAuctionClosed);
 
     return () => {
       socket.emit('leave_room', auction._id);
-      socket.off('new_bid', handleNewBid);
-      socket.off('outbid', handleOutbid);
+      socket.off('new_bid',        handleNewBid);
+      socket.off('outbid',         handleOutbid);
       socket.off('auction_closed', handleAuctionClosed);
       clearTimeout(outbidTimer.current);
     };
@@ -144,18 +118,16 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
       } else {
         await placeBid(auction._id, amount);
       }
-      const entry = {
-        _id: `local-${Date.now()}`,
-        bidder: { _id: currentUserId, name: 'You' },
+      setBids((prev) => [{
+        _id:      `local-${Date.now()}`,
+        bidder:   { _id: currentUserId, name: 'You' },
         amount,
         placedAt: new Date().toISOString(),
-      };
-      setBids((prev) => [entry, ...prev]);
+      }, ...prev]);
       setCurrentHighestBid(amount);
       setCurrentHighestBidder({ _id: currentUserId, name: 'You' });
     } catch (err) {
-      const msg = err?.response?.data?.message || 'Failed to place bid. Please try again.';
-      setBidError(msg);
+      setBidError(err?.response?.data?.message || 'Failed to place bid. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -163,100 +135,189 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
 
   const [imgError, setImgError] = useState(false);
   const imageUrl = !imgError && auction.images?.[0];
+  const isSeller = String(auction.seller?._id || auction.seller) === String(currentUserId);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
       {/* Outbid toast */}
-      {outbidAlert && (
-        <div className="fixed top-6 right-6 z-50 bg-orange-500 text-white px-5 py-3 rounded-xl shadow-lg font-semibold text-sm flex items-center gap-2 animate-bounce">
-          <span>⚡</span> You've been outbid! Place a higher bid to stay in.
-        </div>
-      )}
+      <AnimatePresence>
+        {outbidAlert && (
+          <motion.div
+            initial={{ opacity: 0, x: 40, y: 0 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 40 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed top-20 right-6 z-50 bg-[#1a1a1a] border border-amber-500/25
+                       text-[#f0f0f0] px-5 py-3.5 rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.7)]
+                       text-[13px] font-semibold flex items-center gap-3"
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+            You've been outbid — place a higher bid to lead.
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Auction closed / winner banner */}
-      {isClosed && (
-        <div className={`mb-6 text-white rounded-2xl px-6 py-5 text-center shadow-lg bg-gradient-to-r ${reserveMet ? 'from-purple-600 to-blue-600' : 'from-gray-600 to-gray-500'}`}>
-          <p className="text-lg font-bold">Auction Closed</p>
-          {reserveMet && winner && (
-            <p className="text-sm mt-1 opacity-90">
-              Winner: <span className="font-semibold">{winner.name || winner._id || String(winner)}</span>
-              {finalAmount && (
-                <span> — Final bid: <span className="font-semibold">{formatAmount(finalAmount)}</span></span>
+      {/* Auction closed banner */}
+      <AnimatePresence>
+        {isClosed && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`mb-8 border rounded-xl px-6 py-5
+              ${reserveMet
+                ? 'bg-[#111] border-emerald-500/20'
+                : 'bg-[#111] border-[#2e2e2e]'}`}
+          >
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#999] mb-1">
+                  Auction Status
+                </p>
+                <p className="text-lg font-bold tracking-[-0.02em] text-white">
+                  {reserveMet ? 'Auction Closed — Sold' : 'Auction Closed — Reserve Not Met'}
+                </p>
+                {reserveMet && winner && (
+                  <p className="text-[13px] text-[#888] mt-1">
+                    Winner:{' '}
+                    <span className="text-white font-semibold">
+                      {winner.name || winner._id || String(winner)}
+                    </span>
+                    {finalAmount && (
+                      <>
+                        {' '}·{' '}
+                        <span className="text-white font-semibold">{formatAmount(finalAmount)}</span>
+                      </>
+                    )}
+                  </p>
+                )}
+                {!reserveMet && (
+                  <p className="text-[13px] text-[#999] mt-1">
+                    The reserve price was not met. Item will not be sold.
+                  </p>
+                )}
+              </div>
+              {reserveMet && (
+                <span className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400
+                                 border border-emerald-500/20 text-[11px] font-semibold uppercase
+                                 tracking-[0.08em] px-3 py-1.5 rounded-lg shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  Sold
+                </span>
               )}
-            </p>
-          )}
-          {reserveMet || (
-            <p className="text-sm mt-1 opacity-90">Reserve price not met — item will not be sold.</p>
-          )}
-        </div>
-      )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {/* Main grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
+
         {/* LEFT — item details */}
-        <div className="space-y-6">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          className="space-y-5"
+        >
           {/* Image */}
-          <div className="w-full h-64 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center">
+          <div className="w-full aspect-[16/10] bg-[#111] rounded-xl overflow-hidden
+                          border border-[#2e2e2e] relative group">
             {imageUrl ? (
-              <img src={imageUrl} alt={auction.title} className="w-full h-full object-cover" onError={() => setImgError(true)} />
+              <img
+                src={imageUrl}
+                alt={auction.title}
+                className="w-full h-full object-cover transition-transform duration-500
+                           group-hover:scale-[1.02]"
+                onError={() => setImgError(true)}
+              />
             ) : (
-              <div className="flex flex-col items-center text-gray-300">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              <div className="flex flex-col items-center justify-center h-full text-[#2a2a2a]">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-14 w-14" fill="none"
+                     viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <span className="text-sm mt-2">No image available</span>
+                <span className="text-[12px] text-[#999] mt-3">No image</span>
               </div>
             )}
           </div>
 
-          {/* Title & meta */}
+          {/* Title + meta */}
           <div>
             {auction.category && (
-              <span className="inline-block bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-1 rounded-full mb-2">
+              <span className="inline-block text-[10px] font-semibold uppercase tracking-[0.1em]
+                               text-[#888] border border-[#2e2e2e] px-2.5 py-1 rounded mb-3">
                 {auction.category}
               </span>
             )}
-            <h1 className="text-2xl font-bold text-gray-900">{auction.title}</h1>
-            <p className="text-gray-500 text-sm mt-2 leading-relaxed">{auction.description}</p>
+            <h1 className="text-2xl font-bold tracking-[-0.03em] text-white leading-tight">
+              {auction.title}
+            </h1>
+            <p className="text-[14px] text-[#888] mt-2.5 leading-relaxed">
+              {auction.description}
+            </p>
           </div>
 
-          {/* Price info */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gray-50 rounded-xl p-4">
-              <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Starting Price</p>
-              <p className="text-xl font-bold text-gray-800 mt-1">{formatAmount(auction.startingPrice)}</p>
+          {/* Price display */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-[#111] border border-[#2e2e2e] rounded-xl p-4">
+              <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#888] mb-1.5">
+                Starting Price
+              </p>
+              <p className="text-lg font-bold text-[#888] tracking-[-0.02em]">
+                {formatAmount(auction.startingPrice)}
+              </p>
             </div>
-            <div className="bg-blue-50 rounded-xl p-4">
-              <p className="text-xs text-blue-600 font-medium uppercase tracking-wide">Current Highest Bid</p>
-              <p className="text-xl font-bold text-blue-700 mt-1">
+            <div className={`bg-[#111] rounded-xl p-4 border transition-all
+              ${isClosed
+                ? 'border-[#2e2e2e]'
+                : 'border-cyan-400/15 animate-pulse-glow'}`}>
+              <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-cyan-400/70 mb-1.5">
+                {isClosed ? 'Final Bid' : 'Current Bid'}
+              </p>
+              <p className="text-lg font-bold text-white tracking-[-0.02em]">
                 {currentHighestBid ? formatAmount(currentHighestBid) : formatAmount(auction.startingPrice)}
               </p>
             </div>
           </div>
 
-          {/* Reserve price — seller only */}
-          {String(auction.seller?._id || auction.seller) === String(currentUserId) && auction.reservePrice && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between">
+          {/* Reserve price (seller only) */}
+          {isSeller && auction.reservePrice && (
+            <div className="bg-[#111] border border-amber-500/20 rounded-xl px-4 py-3
+                            flex items-center justify-between">
               <div>
-                <p className="text-xs text-amber-700 font-medium uppercase tracking-wide">Reserve Price</p>
-                <p className="text-base font-bold text-amber-800 mt-0.5">{formatAmount(auction.reservePrice)}</p>
+                <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-amber-500/70 mb-1">
+                  Reserve Price
+                </p>
+                <p className="text-base font-bold text-amber-400 tracking-[-0.02em]">
+                  {formatAmount(auction.reservePrice)}
+                </p>
               </div>
-              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                currentHighestBid >= auction.reservePrice
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-red-100 text-red-700'
-              }`}>
-                {currentHighestBid >= auction.reservePrice ? 'Reserve met' : 'Reserve not met'}
+              <span className={`text-[10px] font-semibold uppercase tracking-[0.08em] px-2.5 py-1 rounded-lg border
+                ${(currentHighestBid || 0) >= auction.reservePrice
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                {(currentHighestBid || 0) >= auction.reservePrice ? 'Reserve met' : 'Reserve not met'}
               </span>
             </div>
           )}
 
           {/* Current leader */}
-          {currentHighestBidder && (
-            <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-              <span className="text-green-600 text-lg">🏆</span>
+          {currentHighestBidder && !isClosed && (
+            <div className="flex items-center gap-3 bg-[#111] border border-[#2e2e2e]
+                            rounded-xl px-4 py-3">
+              <div className="w-8 h-8 rounded-full bg-cyan-400/10 border border-cyan-400/20
+                              flex items-center justify-center shrink-0">
+                <span className="text-cyan-400 text-[11px] font-bold">
+                  {(currentHighestBidder.name || '?')[0].toUpperCase()}
+                </span>
+              </div>
               <div>
-                <p className="text-xs text-green-600 font-medium">Current Leader</p>
-                <p className="text-sm font-semibold text-gray-800">
+                <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#888]">
+                  Leading Bidder
+                </p>
+                <p className="text-[13px] font-semibold text-[#e0e0e0]">
                   {currentHighestBidder.name || currentHighestBidder._id || String(currentHighestBidder)}
                 </p>
               </div>
@@ -264,32 +325,64 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
           )}
 
           {/* Countdown */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-gray-600">Time Remaining:</span>
-            <CountdownTimer endTime={auction.endTime} onExpired={handleExpired} />
-          </div>
-        </div>
+          {!isClosed && (
+            <div className="bg-[#111] border border-[#2e2e2e] rounded-xl px-5 py-4">
+              <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#888] mb-3">
+                Time Remaining
+              </p>
+              <CountdownTimer endTime={auction.endTime} onExpired={handleExpired} />
+            </div>
+          )}
+        </motion.div>
 
-        {/* RIGHT — bid feed + bidding form */}
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
-            <h2 className="text-base font-semibold text-gray-800 mb-4">Live Bid History</h2>
-            <BidFeed bids={bids} isSeller={String(auction.seller?._id || auction.seller) === String(currentUserId)} />
+        {/* RIGHT — bid feed + form */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+          className="space-y-4"
+        >
+          {/* Live bid history */}
+          <div className="bg-[#111] border border-[#2e2e2e] rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#888]">
+                Bid History
+              </h2>
+              {!isClosed && (
+                <div className="flex items-center gap-2">
+                  <span className="live-dot" />
+                  <span className="text-[11px] font-medium text-emerald-400">Live</span>
+                </div>
+              )}
+            </div>
+            <BidFeed bids={bids} isSeller={isSeller} />
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
-            <h2 className="text-base font-semibold text-gray-800 mb-4">Place a Bid</h2>
-            {String(auction.seller?._id || auction.seller) === String(currentUserId) ? (
-              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center text-sm text-gray-500">
-                You are the seller of this item.
+          {/* Bidding form */}
+          <div className="bg-[#111] border border-[#2e2e2e] rounded-xl p-5">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#888] mb-4">
+              {isSeller ? 'Your Listing' : 'Place a Bid'}
+            </h2>
+
+            {isSeller ? (
+              <div className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-lg p-5 text-center">
+                <p className="text-[#999] text-[13px]">You are the seller of this item.</p>
               </div>
             ) : (
               <>
-                {bidError && (
-                  <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-red-700 text-sm">
-                    {bidError}
-                  </div>
-                )}
+                <AnimatePresence>
+                  {bidError && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="mb-4 bg-red-500/8 border border-red-500/20 rounded-lg
+                                 px-4 py-3 text-red-400 text-[13px]"
+                    >
+                      {bidError}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 <BiddingForm
                   onPlaceBid={handlePlaceBid}
                   disabled={isClosed}
@@ -300,7 +393,8 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
               </>
             )}
           </div>
-        </div>
+        </motion.div>
+
       </div>
     </div>
   );

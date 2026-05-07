@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 
 export default function RegisterPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [name,     setName]     = useState('');
+  const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [error,    setError]    = useState('');
+  const [loading,  setLoading]  = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,9 +41,7 @@ export default function RegisterPage() {
         throw new Error('Registration failed: server did not return a valid token.');
       }
 
-      // Store full user profile for display purposes (name, email, role).
       if (data.user) localStorage.setItem('authUser', JSON.stringify(data.user));
-
       login(data.token);
       navigate('/');
     } catch (err) {
@@ -53,69 +52,106 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Create your account</h1>
+    <div className="min-h-[calc(100vh-56px)] flex items-center justify-center auth-bg grid-texture px-4 relative overflow-hidden">
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2.5 rounded-lg mb-4">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your full name"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 6 characters"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-medium text-sm py-2 rounded-lg transition-colors"
-          >
-            {loading ? 'Creating account…' : 'Create account'}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-gray-500 mt-5">
-          Already have an account?{' '}
-          <Link to="/login" className="text-blue-600 hover:underline font-medium">
-            Sign in
-          </Link>
-        </p>
+      {/* Ambient glow */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px]
+                        bg-cyan-400/[0.04] blur-[80px] rounded-full" />
       </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="relative w-full max-w-[380px]"
+      >
+        {/* Brand */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white mb-4">
+            <span className="text-[#080808] text-sm font-black tracking-tight">BM</span>
+          </div>
+          <h1 className="text-xl font-bold tracking-[-0.02em] text-white">Create your account</h1>
+          <p className="text-[13px] text-[#999] mt-1">Join the auction room</p>
+        </div>
+
+        {/* Card */}
+        <div className="bg-[#111] border border-[#2e2e2e] rounded-2xl p-7 shadow-[0_24px_80px_rgba(0,0,0,0.7)]">
+
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-500/8 border border-red-500/20 text-red-400 text-[13px]
+                         px-4 py-3 rounded-lg mb-5"
+            >
+              {error}
+            </motion.div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="field-label">Full name</label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name"
+                className="input-dark w-full"
+              />
+            </div>
+
+            <div>
+              <label className="field-label">Email</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="input-dark w-full"
+              />
+            </div>
+
+            <div>
+              <label className="field-label">Password</label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="At least 6 characters"
+                className="input-dark w-full"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full btn-primary py-2.5 rounded-xl text-[13px] mt-1"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-3.5 h-3.5 border-2 border-[#080808]/30 border-t-[#080808] rounded-full animate-spin" />
+                  Creating account…
+                </span>
+              ) : (
+                'Create account'
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6 pt-5 border-t border-[#222] text-center">
+            <p className="text-[13px] text-[#999]">
+              Already have an account?{' '}
+              <Link to="/login" className="text-[#f0f0f0] hover:text-white font-medium transition-colors">
+                Sign in
+              </Link>
+            </p>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }

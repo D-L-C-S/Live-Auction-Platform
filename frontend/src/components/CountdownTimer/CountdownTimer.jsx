@@ -1,24 +1,40 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-// Calculates remaining time from now until endTime and calls onExpired when done
 function getTimeLeft(endTime) {
   const diff = new Date(endTime).getTime() - Date.now();
   if (diff <= 0) return null;
   const totalSeconds = Math.floor(diff / 1000);
   return {
-    days: Math.floor(totalSeconds / 86400),
-    hours: Math.floor((totalSeconds % 86400) / 3600),
+    days:    Math.floor(totalSeconds / 86400),
+    hours:   Math.floor((totalSeconds % 86400) / 3600),
     minutes: Math.floor((totalSeconds % 3600) / 60),
     seconds: totalSeconds % 60,
     totalMs: diff,
   };
 }
 
-export default function CountdownTimer({ endTime, onExpired }) {
-  const [timeLeft, setTimeLeft] = useState(() => getTimeLeft(endTime));
+function DigitBlock({ value, label, urgent }) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return (
+    <div className="digit-block">
+      <span className={`digit-value ${urgent ? 'text-red-400' : ''}`}>{pad(value)}</span>
+      <span className="digit-label">{label}</span>
+    </div>
+  );
+}
+
+function Colon({ urgent }) {
+  return (
+    <span className={`text-lg font-bold mb-3 self-start mt-0.5 ${urgent ? 'text-red-400/60' : 'text-[#777]'}`}>
+      :
+    </span>
+  );
+}
+
+export default function CountdownTimer({ endTime, onExpired, compact = false }) {
+  const [timeLeft,    setTimeLeft]    = useState(() => getTimeLeft(endTime));
   const expiredCalled = useRef(false);
-  // Keep a ref so the interval always calls the latest onExpired without restarting
-  const onExpiredRef = useRef(onExpired);
+  const onExpiredRef  = useRef(onExpired);
   useEffect(() => { onExpiredRef.current = onExpired; });
 
   useEffect(() => {
@@ -40,31 +56,51 @@ export default function CountdownTimer({ endTime, onExpired }) {
 
   if (!timeLeft) {
     return (
-      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-gray-200 text-gray-600">
-        Auction Closed
+      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-semibold
+                       uppercase tracking-[0.08em] bg-[#1c1c1c] text-[#777] border border-[#2a2a2a]">
+        Ended
       </span>
     );
   }
 
-  // Color shifts: green → yellow → red as deadline approaches
-  const colorClass =
-    timeLeft.totalMs > 3600000
-      ? 'bg-green-100 text-green-800'
-      : timeLeft.totalMs > 300000
-      ? 'bg-yellow-100 text-yellow-800'
-      : 'bg-red-100 text-red-800';
+  const urgent = timeLeft.totalMs <= 300_000;
+  const warn   = timeLeft.totalMs <= 3_600_000 && !urgent;
 
-  const pad = (n) => String(n).padStart(2, '0');
+  // Compact mode — for cards
+  if (compact) {
+    const pad = (n) => String(n).padStart(2, '0');
+    const parts = [];
+    if (timeLeft.days > 0) parts.push(`${timeLeft.days}d`);
+    parts.push(`${pad(timeLeft.hours)}h`);
+    parts.push(`${pad(timeLeft.minutes)}m`);
+    parts.push(`${pad(timeLeft.seconds)}s`);
 
-  const parts = [];
-  if (timeLeft.days > 0) parts.push(`${timeLeft.days}d`);
-  parts.push(`${pad(timeLeft.hours)}h`);
-  parts.push(`${pad(timeLeft.minutes)}m`);
-  parts.push(`${pad(timeLeft.seconds)}s`);
+    const colorCls = urgent ? 'text-red-400 border-red-500/20 bg-red-500/8'
+      : warn ? 'text-amber-400 border-amber-500/20 bg-amber-500/8'
+      : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/8';
 
+    return (
+      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px]
+                        font-semibold font-mono border ${colorCls} ${urgent ? 'animate-pulse' : ''}`}>
+        {parts.join(' ')}
+      </span>
+    );
+  }
+
+  // Full segmented display
   return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${colorClass}`}>
-      {parts.join(' ')}
-    </span>
+    <div className="flex items-end gap-1.5">
+      {timeLeft.days > 0 && (
+        <>
+          <DigitBlock value={timeLeft.days} label="days" urgent={urgent} />
+          <Colon urgent={urgent} />
+        </>
+      )}
+      <DigitBlock value={timeLeft.hours} label="hrs" urgent={urgent} />
+      <Colon urgent={urgent} />
+      <DigitBlock value={timeLeft.minutes} label="min" urgent={urgent} />
+      <Colon urgent={urgent} />
+      <DigitBlock value={timeLeft.seconds} label="sec" urgent={urgent} />
+    </div>
   );
 }
