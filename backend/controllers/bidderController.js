@@ -32,14 +32,18 @@ const getDashboard = async (req, res, next) => {
     // Auctions this user won
     const wonAuctions = await Auction.find({ winner: userId, status: 'closed' }).lean();
     const escrows = await Escrow.find({ winner: userId }).lean();
-    const escrowMap = new Map(escrows.map((e) => [e.auction.toString(), e.status]));
+    const escrowMap = new Map(escrows.map((e) => [e.auction.toString(), e]));
 
-    const wonWithEscrow = wonAuctions.map((a) => ({
-      _id: a._id,
-      title: a.title,
-      finalAmount: a.currentHighestBid,
-      escrowStatus: escrowMap.get(a._id.toString()) ?? 'pending',
-    }));
+    const wonWithEscrow = wonAuctions.map((a) => {
+      const escrow = escrowMap.get(a._id.toString());
+      return {
+        _id: a._id,
+        title: a.title,
+        finalAmount: a.currentHighestBid,
+        escrowStatus: escrow?.status ?? 'pending',
+        stripePaymentIntentId: escrow?.stripePaymentIntentId ?? null,
+      };
+    });
 
     res.json({ activeBids, wonAuctions: wonWithEscrow });
   } catch (err) {

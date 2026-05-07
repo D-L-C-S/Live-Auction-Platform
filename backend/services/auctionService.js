@@ -31,7 +31,7 @@ const performClose = async (auction, io) => {
     winner: auction.winner,
     seller: auction.seller,
     amount: auction.currentHighestBid,
-    status: 'held',
+    status: 'pending_payment',
   });
 
   io.to(room).emit('auction_closed', {

@@ -86,4 +86,41 @@ const closeAuction = async (req, res, next) => {
   }
 };
 
-module.exports = { createAuction, listAuctions, getAuction, closeAuction };
+const cancelAuction = async (req, res, next) => {
+  try {
+    const auction = await Auction.findById(req.params.id);
+    if (!auction) return res.status(404).json({ message: 'Auction not found' });
+    if (!['active', 'pending'].includes(auction.status)) {
+      return res.status(400).json({ message: `Cannot cancel a ${auction.status} auction` });
+    }
+    if (!auction.seller.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Only the seller can cancel this auction' });
+    }
+
+    auction.status = 'cancelled';
+    await auction.save();
+
+    // Void any escrow and Stripe PaymentIntent that may have been created
+    const Escrow = require('../models/Escrow');
+    const escrow = await Escrow.findOne({ auction: auction._id });
+    if (escrow) {
+      if (escrow.stripePaymentIntentId) {
+        const stripeService = require('../services/stripeService');
+        await stripeService.cancelPaymentIntent(escrow.stripePaymentIntentId).catch(() => {});
+      }
+      await escrow.deleteOne();
+    }
+
+    // Deactivate all proxy bids for this auction
+    const ProxyBid = require('../models/ProxyBid');
+    await ProxyBid.updateMany({ auction: auction._id }, { $set: { isActive: false } });
+
+    req.io.to(auction._id.toString()).emit('auction_cancelled', { auctionId: auction._id });
+
+    res.json({ auction });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { createAuction, listAuctions, getAuction, closeAuction, cancelAuction };

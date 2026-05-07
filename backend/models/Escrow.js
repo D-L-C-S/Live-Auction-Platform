@@ -6,10 +6,11 @@ const escrowSchema = new mongoose.Schema(
     winner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     amount: { type: Number, required: true },
+    stripePaymentIntentId: { type: String, default: null },
     status: {
       type: String,
-      enum: ['held', 'released'],
-      default: 'held',
+      enum: ['pending_payment', 'held', 'released'],
+      default: 'pending_payment',
     },
   },
   { timestamps: true }

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee
+                             https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
+         version="6.0">
+
+  <display-name>Live Auction Platform — JSP Documents</display-name>
+
+  <description>
+    Serves the auction result certificate and Stripe payment receipt pages.
+    Deploy this directory to any Jakarta EE 10+ container (e.g. Tomcat 10.x).
+  </description>
+
+  <!-- ── Servlet declarations ─────────────────────────────────────── -->
+
+  <!-- Maps /certificate to auction-certificate.jsp -->
+  <servlet>
+    <servlet-name>AuctionCertificate</servlet-name>
+    <jsp-file>/auction-certificate.jsp</jsp-file>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>AuctionCertificate</servlet-name>
+    <url-pattern>/certificate</url-pattern>
+  </servlet-mapping>
+
+  <!-- Maps /receipt to payment-receipt.jsp -->
+  <servlet>
+    <servlet-name>PaymentReceipt</servlet-name>
+    <jsp-file>/payment-receipt.jsp</jsp-file>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>PaymentReceipt</servlet-name>
+    <url-pattern>/receipt</url-pattern>
+  </servlet-mapping>
+
+  <!-- ── Session ──────────────────────────────────────────────────── -->
+  <session-config>
+    <session-timeout>30</session-timeout>
+    <cookie-config>
+      <http-only>true</http-only>
+      <secure>true</secure>
+    </cookie-config>
+    <tracking-mode>COOKIE</tracking-mode>
+  </session-config>
+
+  <!-- ── Welcome files ────────────────────────────────────────────── -->
+  <welcome-file-list>
+    <welcome-file>auction-certificate.jsp</welcome-file>
+  </welcome-file-list>
+
+  <!-- ── Error pages ──────────────────────────────────────────────── -->
+  <error-page>
+    <error-code>404</error-code>
+    <location>/auction-certificate.jsp</location>
+  </error-page>
+  <error-page>
+    <error-code>500</error-code>
+    <location>/auction-certificate.jsp</location>
+  </error-page>
+
+</web-app>

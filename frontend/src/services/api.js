@@ -1,5 +1,10 @@
 import axios from 'axios';
 
+// In production VITE_API_URL points to the Railway backend service URL
+if (import.meta.env.VITE_API_URL) {
+  axios.defaults.baseURL = import.meta.env.VITE_API_URL;
+}
+
 // Mock auctions used as fallback when backend is unavailable
 const now = Date.now();
 export const MOCK_AUCTIONS = [

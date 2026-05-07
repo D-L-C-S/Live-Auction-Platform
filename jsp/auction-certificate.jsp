@@ -15,18 +15,29 @@
     - certificateId   (String, UUID)
 --%>
 <%
-    // --- Pull attributes from request (set by your Express → JSP bridge / servlet) ---
-    String auctionId       = (String)  request.getAttribute("auctionId");
-    String itemTitle       = (String)  request.getAttribute("itemTitle");
-    String itemDescription = (String)  request.getAttribute("itemDescription");
-    String winnerName      = (String)  request.getAttribute("winnerName");
-    String winnerEmail     = (String)  request.getAttribute("winnerEmail");
-    String sellerName      = (String)  request.getAttribute("sellerName");
-    Object priceObj        =           request.getAttribute("finalPrice");
-    String auctionEndTime  = (String)  request.getAttribute("auctionEndTime");
-    String certificateId   = (String)  request.getAttribute("certificateId");
+    // --- Pull from request attributes (set by servlet) or query parameters (direct URL access) ---
+    String auctionId       = (String) request.getAttribute("auctionId");
+    String itemTitle       = (String) request.getAttribute("itemTitle");
+    String itemDescription = (String) request.getAttribute("itemDescription");
+    String winnerName      = (String) request.getAttribute("winnerName");
+    String winnerEmail     = (String) request.getAttribute("winnerEmail");
+    String sellerName      = (String) request.getAttribute("sellerName");
+    Object priceObj        =          request.getAttribute("finalPrice");
+    String auctionEndTime  = (String) request.getAttribute("auctionEndTime");
+    String certificateId   = (String) request.getAttribute("certificateId");
 
-    // Hardcode defaults for local dev / testing
+    // Fall back to query parameters when accessed via direct URL (e.g. from frontend link)
+    if (auctionId      == null) auctionId      = request.getParameter("auctionId");
+    if (itemTitle      == null) itemTitle      = request.getParameter("itemTitle");
+    if (itemDescription== null) itemDescription= request.getParameter("itemDescription");
+    if (winnerName     == null) winnerName     = request.getParameter("winnerName");
+    if (winnerEmail    == null) winnerEmail    = request.getParameter("winnerEmail");
+    if (sellerName     == null) sellerName     = request.getParameter("sellerName");
+    if (priceObj       == null) priceObj       = request.getParameter("finalPrice");
+    if (auctionEndTime == null) auctionEndTime = request.getParameter("auctionEndTime");
+    if (certificateId  == null) certificateId  = request.getParameter("certificateId");
+
+    // Hardcoded defaults for local dev / testing
     if (auctionId      == null) auctionId      = "a1b2c3d4";
     if (itemTitle      == null) itemTitle      = "Vintage Leica M3 Camera";
     if (itemDescription== null) itemDescription= "1954 Leica M3 in excellent working condition. Original leather, all curtains intact.";
@@ -34,7 +45,7 @@
     if (winnerEmail    == null) winnerEmail    = "rohan@example.com";
     if (sellerName     == null) sellerName     = "Amogh Desai";
     if (auctionEndTime == null) auctionEndTime = "2025-04-26T18:30:00Z";
-    if (certificateId  == null) certificateId  = "CERT-8F2A-4D1C";
+    if (certificateId  == null) certificateId  = "CERT-" + Integer.toHexString(auctionId.hashCode()).toUpperCase();
 
     double finalPrice = 0.0;
     if (priceObj instanceof Double) finalPrice = (Double) priceObj;

@@ -26,6 +26,37 @@ connectDB().then(() => {
 
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
 app.use('/uploads', express.static(require('node:path').join(__dirname, 'uploads')));
+
+// Stripe webhook must receive the raw body — register before express.json()
+if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET) {
+  const stripe = require('./config/stripe');
+  const Escrow = require('./models/Escrow');
+  app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        req.headers['stripe-signature'],
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      return res.status(400).send(`Webhook signature error: ${err.message}`);
+    }
+    // When capture_method:'manual' payment is authorized, move escrow to held
+    if (event.type === 'payment_intent.amount_capturable_updated') {
+      const pi = event.data.object;
+      const auctionId = pi.metadata?.auctionId;
+      if (auctionId) {
+        await Escrow.findOneAndUpdate(
+          { auction: auctionId, status: 'pending_payment' },
+          { $set: { status: 'held', stripePaymentIntentId: pi.id } }
+        );
+      }
+    }
+    res.json({ received: true });
+  });
+}
+
 app.use(express.json());
 app.use(socketMiddleware);
 

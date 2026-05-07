@@ -6,11 +6,13 @@ const {
   listAuctions,
   getAuction,
   closeAuction,
+  cancelAuction,
 } = require('../controllers/auctionController');
 
 router.get('/', optionalProtect, listAuctions);
 router.get('/:id', getAuction);
 router.post('/', protect, createAuction);
 router.post('/:id/close', protect, closeAuction);
+router.post('/:id/cancel', protect, cancelAuction);
 
 module.exports = router;
