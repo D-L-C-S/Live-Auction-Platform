@@ -1,104 +1,187 @@
 # Backend
 
-Express + Socket.io API server for the Live Auction Platform.
+Node.js + Express API server for the Live Auction Platform.
 
-## Stack
-
-- **Node.js / Express** — REST API
-- **Socket.io** — real-time bid broadcasting
-- **Mongoose** — MongoDB ODM
-- **Multer** — image file uploads
-- **jsonwebtoken / bcryptjs** — auth
-
-## Setup
+## Scripts
 
 ```bash
-cp .env.example .env
-npm install
-npm run dev     # nodemon, restarts on change
-npm start       # production
+npm run dev     # nodemon — auto-restart on file changes
+npm start       # node server.js — production
 ```
+
+Server starts on `PORT` (default `5000`).
 
 ## Environment Variables
 
-| Variable | Description |
-| --- | --- |
-| `PORT` | Server port (default `5000`) |
-| `MONGO_URI` | MongoDB connection string |
-| `JWT_SECRET` | Secret for signing JWT tokens |
-| `CLIENT_URL` | Frontend origin for CORS (e.g. `http://localhost:5173`) |
-| `PROXY_BID_INCREMENT` | Minimum increment for proxy auto-bids (default `1`) |
+Copy `.env.example` to `.env` and fill in each value.
 
-## API Routes
+| Variable | Required | Description |
+|---|---|---|
+| `PORT` | No | HTTP port (default: 5000) |
+| `MONGO_URI` | Yes | MongoDB connection string |
+| `JWT_SECRET` | Yes | Secret used to sign JWT tokens |
+| `CLIENT_URL` | Yes | Frontend origin for CORS (e.g. `http://localhost:5173`) |
+| `STRIPE_SECRET_KEY` | Yes* | Stripe secret key (`sk_test_...` or `sk_live_...`) |
+| `STRIPE_WEBHOOK_SECRET` | No | Stripe webhook signing secret (`whsec_...`) — only needed for local webhook forwarding |
+| `PROXY_BID_INCREMENT` | No | Minimum bid step for proxy bidding (default: 1) |
+
+*If `STRIPE_SECRET_KEY` is absent the server starts but all `/api/escrow` payment endpoints return `503`.
+
+## API Reference
+
+All routes are prefixed with `/api`.
+
+### Auth
 
 | Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| POST | `/api/auth/register` | — | Register a new user |
-| POST | `/api/auth/login` | — | Login, returns JWT |
-| GET | `/api/auctions` | optional | List auctions; `?seller=me` returns only the logged-in seller's listings (all statuses) |
-| GET | `/api/auctions/:id` | — | Get one auction |
-| POST | `/api/auctions` | JWT | Create an auction |
-| POST | `/api/auctions/:id/close` | JWT | Close an auction (seller only) |
-| POST | `/api/bids/:auctionId` | JWT | Place a bid |
-| POST | `/api/bids/:auctionId/proxy` | JWT | Set/update proxy max bid |
-| GET | `/api/bids/:auctionId` | — | Get bid history for an auction |
-| GET | `/api/escrow/auction/:auctionId` | JWT | Get escrow status (winner or seller only) |
-| POST | `/api/escrow/confirm-delivery` | JWT | Buyer confirms receipt, releases escrow to seller |
-| GET | `/api/bidders/dashboard` | JWT | Bidder's active bids and won auctions with escrow status |
-| POST | `/api/upload` | JWT | Upload an image (multipart/form-data, field: `image`, max 5 MB) |
+|---|---|---|---|
+| POST | `/auth/register` | — | Create account |
+| POST | `/auth/login` | — | Login, returns JWT |
 
-Uploaded files are served as static assets at `/uploads/<filename>`.
+**Register body:** `{ name, email, password, role? }`  
+**Login body:** `{ email, password }`  
+**Login response:** `{ token, user: { _id, name, email, role } }`
 
-## Socket.io Events
+---
 
-### Client → Server
+### Auctions
 
-| Event | Payload | Description |
-| --- | --- | --- |
-| `join_room` | `auctionId: string` | Subscribe to a live auction room |
-| `leave_room` | `auctionId: string` | Unsubscribe from a room |
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/auctions` | Optional | List all auctions. Pass `?seller=me` to get your own listings |
+| GET | `/auctions/:id` | Optional | Get one auction |
+| POST | `/auctions` | Required | Create auction listing |
+| POST | `/auctions/:id/close` | Required | End auction early (seller only) |
+| POST | `/auctions/:id/cancel` | Required | Cancel auction, void escrow (seller only) |
 
-### Server → Client (emitted to auction room)
+**Create body:** `{ title, description, startingPrice, reservePrice?, endTime, images?, category? }`
 
-| Event | Payload | Description |
-| --- | --- | --- |
-| `new_bid` | `{ auctionId, bidId, bidder, amount, placedAt }` | A new highest bid was placed |
-| `outbid` | `{ auctionId, outbidUserId }` | Previous leader was outbid — clients filter by userId |
-| `auction_closed` | `{ auctionId, winnerId, finalAmount, reserveMet }` | Auction ended; `reserveMet: false` means reserve was not reached and there is no winner |
+---
 
-## Project Structure
+### Bids
 
-```text
-backend/
-├── config/
-│   └── db.js                  # Mongoose connection
-├── controllers/
-│   ├── authController.js
-│   ├── auctionController.js
-│   ├── bidController.js
-│   ├── bidderController.js    # Bidder dashboard aggregation
-│   └── escrowController.js
-├── middleware/
-│   ├── auth.js                # protect (JWT required) + optionalProtect (JWT if present)
-│   └── validate.js            # Bid validation — amount, auction state, not own listing
-├── models/
-│   ├── User.js
-│   ├── Auction.js
-│   ├── Bid.js
-│   ├── ProxyBid.js
-│   └── Escrow.js              # status: held → released
-├── routes/
-│   ├── authRoutes.js
-│   ├── auctionRoutes.js
-│   ├── bidRoutes.js
-│   ├── escrowRoutes.js
-│   ├── bidderRoutes.js
-│   └── uploadRoutes.js
-├── services/
-│   ├── socketService.js       # initSocket — stamps req.io on every request
-│   ├── auctionService.js      # performClose — shared by controller + scheduler
-│   ├── auctionScheduler.js    # cron job that auto-closes expired auctions
-│   └── proxyBidService.js     # Proxy bid set / auto-increment logic
-├── uploads/                   # Uploaded images (git-ignored, created on install)
-└── server.js
-```
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/bids/:auctionId` | — | Get all bids for an auction |
+| POST | `/bids/:auctionId` | Required | Place a manual bid `{ amount }` |
+| POST | `/bids/:auctionId/proxy` | Required | Set a proxy max bid `{ maxBid }` |
+
+---
+
+### Escrow
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/escrow/auction/:auctionId` | Required | Get escrow record (winner or seller only) |
+| POST | `/escrow/init-payment` | Required | Create Stripe PaymentIntent, returns `{ clientSecret }` |
+| POST | `/escrow/mark-payment-held` | Required | Verify PI authorized, move escrow to `held` |
+| POST | `/escrow/confirm-delivery` | Required | Capture PI funds, move escrow to `released` |
+
+---
+
+### Bidder Dashboard
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/bidders/dashboard` | Required | Active bids + won auctions with escrow status |
+
+---
+
+### File Upload
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/upload` | Required | Upload image (max 5 MB, images only). Returns `{ url }` |
+
+Uploaded files are stored in `uploads/` and served statically at `/uploads/<filename>`.
+
+---
+
+### Stripe Webhooks
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/webhooks/stripe` | Raw body — Stripe event handler |
+
+Handled events:
+- `payment_intent.amount_capturable_updated` → moves escrow to `held`
+
+The webhook route is registered **before** `express.json()` to receive the raw body required for signature verification.
+
+---
+
+## Data Models
+
+### User
+| Field | Type | Notes |
+|---|---|---|
+| name | String | required |
+| email | String | required, unique, lowercase |
+| passwordHash | String | bcrypt |
+| role | String | `buyer` · `seller` · `admin` (default: `buyer`) |
+
+### Auction
+| Field | Type | Notes |
+|---|---|---|
+| title | String | required |
+| description | String | required |
+| images | [String] | array of URLs |
+| seller | ObjectId | ref User |
+| startingPrice | Number | required |
+| reservePrice | Number | optional |
+| currentHighestBid | Number | denormalized for fast reads |
+| currentHighestBidder | ObjectId | ref User |
+| startTime | Date | required |
+| endTime | Date | required |
+| status | String | `pending` · `active` · `closed` · `cancelled` |
+| winner | ObjectId | ref User |
+| category | String | |
+
+### Bid
+| Field | Type | Notes |
+|---|---|---|
+| auction | ObjectId | ref Auction, indexed |
+| bidder | ObjectId | ref User |
+| amount | Number | required |
+
+### ProxyBid
+| Field | Type | Notes |
+|---|---|---|
+| auction | ObjectId | ref Auction |
+| bidder | ObjectId | ref User |
+| maxBid | Number | upper limit |
+| bidIncrement | Number | step size (default: 1) |
+| isActive | Boolean | false after auction closes or outbid beyond max |
+
+Unique index on `(auction, bidder)` — one proxy bid per user per auction.
+
+### Escrow
+| Field | Type | Notes |
+|---|---|---|
+| auction | ObjectId | ref Auction, unique |
+| winner | ObjectId | ref User |
+| seller | ObjectId | ref User |
+| amount | Number | final winning bid |
+| stripePaymentIntentId | String | Stripe PI id |
+| status | String | `pending_payment` · `held` · `released` |
+
+---
+
+## Key Services
+
+### `services/stripeService.js`
+Wraps Stripe SDK calls. `assertStripe()` throws `503` if `STRIPE_SECRET_KEY` is unset so the rest of the app fails gracefully.
+
+- `createPaymentIntent(amountINR, metadata)` — creates a PI with `capture_method: 'manual'`
+- `capturePaymentIntent(id)` — captures authorized funds at delivery
+- `cancelPaymentIntent(id)` — voids a PI (used on auction cancel)
+- `retrievePaymentIntent(id)` — server-side verification before trusting frontend claims
+
+### `services/proxyBidService.js`
+Called after every manual bid. Finds the top eligible proxy bidder and places one increment above the current highest bid, repeating until no proxy can outbid (capped at 100 iterations).
+
+### `services/socketService.js`
+Returns an Express middleware that attaches the `io` instance to `req`. Controllers use `req.io.to(auctionId).emit(...)` to push live events.
+
+### `services/auctionService.js`
+Contains `closeAuction(auctionId)` — shared close logic used by both the cron job and the manual close endpoint. Sets the winner, creates the Escrow record, and emits `auction_closed`.
