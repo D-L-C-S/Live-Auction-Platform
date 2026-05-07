@@ -357,7 +357,7 @@ export default function BidderDashboard() {
                   </div>
                 </div>
 
-                {auction.escrowStatus === 'held' ? (
+                {auction.escrowStatus === 'held' && (
                   <button
                     onClick={() => handleConfirmDelivery(auction._id)}
                     className="w-full bg-white text-[#080808] font-semibold py-2.5 rounded-xl
@@ -366,7 +366,8 @@ export default function BidderDashboard() {
                   >
                     Confirm Item Received
                   </button>
-                ) : (
+                )}
+                {auction.escrowStatus === 'released' && (
                   <a
                     href={`/jsp/auction-certificate.jsp?auctionId=${auction._id}`}
                     className="block w-full text-center py-2.5 px-4 border border-[#2e2e2e]

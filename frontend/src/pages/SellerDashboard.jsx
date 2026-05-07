@@ -70,7 +70,7 @@ function CreateListingForm({ onSuccess }) {
         images,
         startingPrice:  Number(form.startingPrice),
         reservePrice:   form.reservePrice ? Number(form.reservePrice) : null,
-        auctionEndTime: `${form.endDate}T${form.endTime}:00.000Z`,
+        auctionEndTime: new Date(`${form.endDate}T${form.endTime}`).toISOString(),
       });
       onSuccess(newAuction);
     } catch (err) {

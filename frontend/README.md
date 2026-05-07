@@ -7,6 +7,7 @@ React 18 + Vite SPA for the Live Auction Platform.
 - **React 18** — UI
 - **React Router v6** — client-side routing
 - **Tailwind CSS** — utility-first styling
+- **Framer Motion** — page and component animations
 - **socket.io-client** — real-time bid updates
 - **Axios** — HTTP requests to the backend API
 
@@ -44,7 +45,11 @@ Collects a manual bid and an optional proxy max. The proxy max field validates i
 
 ### `BidFeed`
 
-Scrollable list of bids, newest first, formatted in ₹ (Indian locale). Shows "No bids yet." for sellers and "Be the first to bid!" for buyers.
+Scrollable list of bids, newest first, formatted in ₹ (Indian locale). Each entry has a colour-coded avatar, a "Lead" badge on the top bid, and an animated slide-in on arrival. Shows "No bids yet." for sellers and "No bids yet — be first." for buyers.
+
+### `BidderDashboard`
+
+Landing page for logged-in buyers. Shows animated stat counters (active bids, won count, total spent), a card grid of active bids with proxy max and closing time, and a separate grid of won auctions with escrow status. "Confirm Item Received" button releases escrow; "View Certificate" link appears once escrow is released.
 
 ### `CountdownTimer`
 
