@@ -22,6 +22,16 @@ npm run preview   # preview the production build locally
 
 In development, Vite proxies `/api` and `/uploads` requests to `http://localhost:5000`.
 
+## Environment Variables
+
+Create `frontend/.env` from `.env.example`.
+
+| Variable | Description |
+| --- | --- |
+| `VITE_API_URL` | Backend origin (for example `https://your-backend.up.railway.app`). Do **not** append `/api`. |
+| `VITE_SOCKET_URL` | Optional Socket.io server origin. If omitted, the app falls back to `VITE_API_URL`. |
+| `VITE_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key used by the payment modal. |
+
 ## Pages & Routing
 
 | Path | Component | Description |

@@ -3,6 +3,7 @@ const express = require('express');
 const http = require('node:http');
 const cors = require('cors');
 const connectDB = require('./config/db');
+const { parseAllowedOrigins, corsOriginHandler } = require('./config/origins');
 const { initSocket } = require('./services/socketService');
 
 const authRoutes = require('./routes/authRoutes');
@@ -16,15 +17,17 @@ const { cleanOrphanedUploads } = require('./services/uploadCleanup');
 
 const app = express();
 const server = http.createServer(app);
+const allowedOrigins = parseAllowedOrigins();
+app.set('trust proxy', 1);
 
-const socketMiddleware = initSocket(server);
+const socketMiddleware = initSocket(server, allowedOrigins);
 
 connectDB().then(() => {
   startScheduler();
   cleanOrphanedUploads();
 });
 
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+app.use(cors({ origin: corsOriginHandler(allowedOrigins), credentials: true }));
 app.use('/uploads', express.static(require('node:path').join(__dirname, 'uploads')));
 
 // Stripe webhook must receive the raw body — register before express.json()
@@ -59,6 +62,9 @@ if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET) {
 
 app.use(express.json());
 app.use(socketMiddleware);
+app.get('/api/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/auctions', auctionRoutes);

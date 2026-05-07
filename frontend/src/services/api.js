@@ -1,8 +1,30 @@
 import axios from 'axios';
 
-// In production VITE_API_URL points to the Railway backend service URL
-if (import.meta.env.VITE_API_URL) {
-  axios.defaults.baseURL = import.meta.env.VITE_API_URL;
+// Set VITE_API_URL to the backend origin, e.g. https://your-backend.up.railway.app
+const rawApiOrigin = import.meta.env.VITE_API_URL?.trim();
+const API_ORIGIN = rawApiOrigin
+  ? rawApiOrigin.replace(/\/+$/, '').replace(/\/api$/, '')
+  : '';
+
+if (API_ORIGIN) {
+  axios.defaults.baseURL = API_ORIGIN;
+}
+
+export function buildApiUrl(path) {
+  if (!API_ORIGIN) return path;
+  if (/^https?:\/\//i.test(path)) return path;
+  return path.startsWith('/') ? `${API_ORIGIN}${path}` : `${API_ORIGIN}/${path}`;
+}
+
+export function apiFetch(path, options) {
+  return fetch(buildApiUrl(path), options);
+}
+
+export function toAssetUrl(url) {
+  if (!url) return url;
+  if (/^(https?:|data:|blob:)/i.test(url)) return url;
+  if (!API_ORIGIN) return url;
+  return url.startsWith('/') ? `${API_ORIGIN}${url}` : `${API_ORIGIN}/${url}`;
 }
 
 // Mock auctions used as fallback when backend is unavailable

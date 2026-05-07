@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import CountdownTimer from '../CountdownTimer/CountdownTimer';
 import BidFeed from '../BidFeed/BidFeed';
 import BiddingForm from '../BiddingForm/BiddingForm';
-import { placeBid, placeProxyBid, closeAuction, cancelAuction } from '../../services/api';
+import { apiFetch, toAssetUrl, placeBid, placeProxyBid, closeAuction, cancelAuction } from '../../services/api';
 
 function formatAmount(n) {
   if (n == null) return '—';
@@ -41,7 +41,7 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
   useEffect(() => {
     const fetchBidHistory = async () => {
       try {
-        const response = await fetch(`/api/bids/${auction._id}`);
+        const response = await apiFetch(`/api/bids/${auction._id}`);
         if (!response.ok) throw new Error('Failed to fetch history');
         const historyData = await response.json();
         if (historyData && historyData.length > 0) {
@@ -170,7 +170,7 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
   }
 
   const [imgError, setImgError] = useState(false);
-  const imageUrl = !imgError && auction.images?.[0];
+  const imageUrl = !imgError && toAssetUrl(auction.images?.[0]);
   const isSeller = String(auction.seller?._id || auction.seller) === String(currentUserId);
 
   const bannerBorder   = isCancelled ? 'border-red-500/20' : reserveMet ? 'border-emerald-500/20' : 'border-[#2e2e2e]';
