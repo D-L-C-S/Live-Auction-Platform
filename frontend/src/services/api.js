@@ -107,6 +107,18 @@ export async function fetchEscrow(auctionId) {
   return data.escrow;
 }
 
+// POST /api/escrow/init-payment — create Stripe PaymentIntent, returns { clientSecret }
+export async function initPayment(auctionId) {
+  const { data } = await axios.post('/api/escrow/init-payment', { auctionId }, { headers: getAuthHeaders() });
+  return data;
+}
+
+// POST /api/escrow/mark-payment-held — verify PI and move escrow from pending_payment → held
+export async function markPaymentHeld(auctionId, paymentIntentId) {
+  const { data } = await axios.post('/api/escrow/mark-payment-held', { auctionId, paymentIntentId }, { headers: getAuthHeaders() });
+  return data.escrow;
+}
+
 // POST /api/upload — upload an image file, returns { url }
 export async function uploadImage(file) {
   const formData = new FormData();
@@ -121,6 +133,18 @@ export async function uploadImage(file) {
 // POST /api/auctions — create a new auction listing
 export async function createAuction(payload) {
   const { data } = await axios.post('/api/auctions', payload, { headers: getAuthHeaders() });
+  return data.auction;
+}
+
+// POST /api/auctions/:id/close — seller manually ends an active auction early
+export async function closeAuction(auctionId) {
+  const { data } = await axios.post(`/api/auctions/${auctionId}/close`, {}, { headers: getAuthHeaders() });
+  return data.auction;
+}
+
+// POST /api/auctions/:id/cancel — seller cancels auction; voids escrow and any Stripe PI
+export async function cancelAuction(auctionId) {
+  const { data } = await axios.post(`/api/auctions/${auctionId}/cancel`, {}, { headers: getAuthHeaders() });
   return data.auction;
 }
 

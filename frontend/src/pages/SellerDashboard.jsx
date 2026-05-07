@@ -1,17 +1,26 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { createAuction, getSellerListings, fetchEscrow, uploadImage } from "../services/api";
+import { createAuction, getSellerListings, fetchEscrow, uploadImage, closeAuction, cancelAuction } from "../services/api";
 
 const STATUS_STYLE = {
-  active:  "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  closed:  "bg-[#1a1a1a] text-[#999] border-[#2e2e2e]",
-  settled: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+  active:    "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  closed:    "bg-[#1a1a1a] text-[#999] border-[#2e2e2e]",
+  settled:   "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+  cancelled: "bg-red-500/10 text-red-400 border-red-500/20",
 };
 
 const ESCROW_STYLE = {
-  pending:  "bg-[#1a1a1a] text-[#999] border-[#2e2e2e]",
-  held:     "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  released: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  pending:         "bg-[#1a1a1a] text-[#999] border-[#2e2e2e]",
+  pending_payment: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  held:            "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  released:        "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+};
+
+const ESCROW_LABEL = {
+  pending:         'Pending',
+  pending_payment: 'Awaiting Payment',
+  held:            'Held',
+  released:        'Released',
 };
 
 function fmt(n) {
@@ -243,14 +252,14 @@ function CreateListingForm({ onSuccess }) {
 
 // ─── Listings Table ───────────────────────────────────────────────────────────
 
-function ListingsTable({ listings }) {
+function ListingsTable({ listings, onClose, onCancel, actionLoading }) {
   return (
     <div className="bg-[#111] border border-[#2e2e2e] rounded-xl overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-[13px]">
           <thead>
             <tr className="border-b border-[#222]">
-              {["Item", "Starting", "Current bid", "Ends in", "Status", "Escrow"].map((h) => (
+              {["Item", "Starting", "Current bid", "Ends in", "Status", "Escrow", "Actions"].map((h) => (
                 <th key={h}
                     className="text-left text-[10px] font-medium uppercase tracking-[0.1em]
                                text-[#888] px-4 py-3.5">
@@ -287,6 +296,36 @@ function ListingsTable({ listings }) {
                 <td className="px-4 py-3.5">
                   <EscrowBadge status={l.escrowStatus} />
                 </td>
+                <td className="px-4 py-3.5">
+                  {l.status === "active" ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => onClose(l.id, l.title)}
+                        disabled={actionLoading === l.id}
+                        className="text-[11px] font-semibold px-2.5 py-1 rounded-lg
+                                   bg-white/8 border border-white/15 text-[#ccc]
+                                   hover:bg-white hover:text-[#080808] hover:border-white
+                                   disabled:opacity-40 disabled:cursor-not-allowed
+                                   transition-all duration-150 whitespace-nowrap"
+                      >
+                        {actionLoading === l.id ? "…" : "End"}
+                      </button>
+                      <button
+                        onClick={() => onCancel(l.id, l.title)}
+                        disabled={actionLoading === l.id}
+                        className="text-[11px] font-semibold px-2.5 py-1 rounded-lg
+                                   bg-red-500/8 border border-red-500/20 text-red-400
+                                   hover:bg-red-500/20 hover:border-red-500/40
+                                   disabled:opacity-40 disabled:cursor-not-allowed
+                                   transition-all duration-150 whitespace-nowrap"
+                      >
+                        {actionLoading === l.id ? "…" : "Cancel"}
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-[#555]">—</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -298,7 +337,7 @@ function ListingsTable({ listings }) {
 
 function EscrowBadge({ status }) {
   const safe  = (status && status !== "null") ? status.toLowerCase() : "pending";
-  const label = safe.charAt(0).toUpperCase() + safe.slice(1);
+  const label = ESCROW_LABEL[safe] ?? safe;
   const cls   = ESCROW_STYLE[safe] ?? ESCROW_STYLE.pending;
   return (
     <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold
@@ -334,11 +373,12 @@ function toRow(a) {
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export default function SellerDashboard() {
-  const [tab,          setTab]          = useState("dashboard");
-  const [listings,     setListings]     = useState([]);
-  const [fetchError,   setFetchError]   = useState("");
-  const [fetchLoading, setFetchLoading] = useState(true);
-  const [successMsg,   setSuccessMsg]   = useState("");
+  const [tab,           setTab]           = useState("dashboard");
+  const [listings,      setListings]      = useState([]);
+  const [fetchError,    setFetchError]    = useState("");
+  const [fetchLoading,  setFetchLoading]  = useState(true);
+  const [successMsg,    setSuccessMsg]    = useState("");
+  const [actionLoading, setActionLoading] = useState(null); // auctionId being acted on
 
   useEffect(() => {
     (async () => {
@@ -376,9 +416,39 @@ export default function SellerDashboard() {
     setTimeout(() => setSuccessMsg(""), 4000);
   };
 
+  const handleClose = async (id, title) => {
+    if (!globalThis.confirm(`End "${title}" now? The highest bidder will win and escrow will be created.`)) return;
+    setActionLoading(id);
+    try {
+      const updated = await closeAuction(id);
+      setListings((prev) => prev.map((l) => l.id === id ? { ...l, ...toRow(updated) } : l));
+      setSuccessMsg(`"${title}" has been closed.`);
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (err) {
+      alert("Failed to end auction: " + (err.response?.data?.message || err.message));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancel = async (id, title) => {
+    if (!globalThis.confirm(`Cancel "${title}"? This cannot be undone — all bids will be voided and no winner selected.`)) return;
+    setActionLoading(id);
+    try {
+      const updated = await cancelAuction(id);
+      setListings((prev) => prev.map((l) => l.id === id ? { ...l, ...toRow(updated) } : l));
+      setSuccessMsg(`"${title}" has been cancelled.`);
+      setTimeout(() => setSuccessMsg(""), 4000);
+    } catch (err) {
+      alert("Failed to cancel auction: " + (err.response?.data?.message || err.message));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const activeCount  = listings.filter((l) => l.status === "active").length;
   const closedCount  = listings.filter((l) => l.status !== "active").length;
-  const totalSettled = listings.filter((l) => l.status === "settled").reduce((s, l) => s + l.currentBid, 0);
+  const totalSettled = listings.filter((l) => l.escrowStatus === "released").reduce((s, l) => s + l.currentBid, 0);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -492,7 +562,12 @@ export default function SellerDashboard() {
             )}
 
             {!fetchLoading && !fetchError && listings.length > 0 && (
-              <ListingsTable listings={listings} />
+              <ListingsTable
+                listings={listings}
+                onClose={handleClose}
+                onCancel={handleCancel}
+                actionLoading={actionLoading}
+              />
             )}
           </motion.div>
         )}

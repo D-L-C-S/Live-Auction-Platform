@@ -9,6 +9,8 @@ import RegisterPage from './pages/RegisterPage';
 import { SocketProvider } from './context/SocketContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import PaymentReceiptPage from './pages/PaymentReceiptPage';
+import AuctionCertificatePage from './pages/AuctionCertificatePage';
 
 function NavBar() {
   const { isAuthenticated, logout } = useAuth();
@@ -128,6 +130,8 @@ function App() {
                 <Route path="/auctions"     element={<ProtectedRoute><AuctionListingPage /></ProtectedRoute>} />
                 <Route path="/auctions/:id" element={<ProtectedRoute><AuctionPage /></ProtectedRoute>} />
                 <Route path="/seller"       element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
+                <Route path="/receipt"      element={<PaymentReceiptPage />} />
+                <Route path="/certificate"  element={<AuctionCertificatePage />} />
               </Routes>
             </main>
           </div>

@@ -1,18 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useMotionValue, useTransform, animate, AnimatePresence } from 'framer-motion';
+import PaymentModal from '../components/PaymentModal/PaymentModal';
+import { markPaymentHeld } from '../services/api';
 
 function fmt(n) {
   return '₹' + Number(n).toLocaleString('en-IN');
 }
 
 function escrowStatusStyle(status) {
-  if (status === 'held')     return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
-  if (status === 'released') return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+  if (status === 'pending_payment') return 'bg-blue-500/15 text-blue-300 border-blue-500/30';
+  if (status === 'held')            return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+  if (status === 'released')        return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
   return 'bg-[#1c1c1c] text-[#888] border-[#333]';
 }
 
-// Animated number counter
+function escrowStatusLabel(status) {
+  if (status === 'pending_payment') return 'awaiting payment';
+  return status || 'pending';
+}
+
 function Counter({ value, prefix = '', suffix = '' }) {
   const motionVal = useMotionValue(0);
   const display = useTransform(motionVal, (v) =>
@@ -40,6 +47,7 @@ export default function BidderDashboard() {
   const [wonAuctions, setWonAuctions] = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState(null);
+  const [payingAuction, setPayingAuction] = useState(null); // { _id, title, finalAmount }
 
   useEffect(() => {
     (async () => {
@@ -60,7 +68,28 @@ export default function BidderDashboard() {
     })();
   }, []);
 
-  const handleConfirmDelivery = async (auctionId) => {
+  const handlePayNow = (auction) => {
+    setPayingAuction(auction);
+  };
+
+  const handlePaymentSuccess = async (paymentIntentId) => {
+    const auctionId = payingAuction._id;
+    setPayingAuction(null);
+    try {
+      await markPaymentHeld(auctionId, paymentIntentId);
+      setWonAuctions((prev) =>
+        prev.map((a) =>
+          a._id === auctionId
+            ? { ...a, escrowStatus: 'held', stripePaymentIntentId: paymentIntentId }
+            : a
+        )
+      );
+    } catch (err) {
+      alert('Payment succeeded but escrow update failed: ' + err.message);
+    }
+  };
+
+  const handleConfirmDelivery = async (auction) => {
     if (!globalThis.confirm('Are you sure you received the item? This will release funds to the seller.')) return;
     try {
       const token    = localStorage.getItem('token');
@@ -70,13 +99,15 @@ export default function BidderDashboard() {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ auctionId }),
+        body: JSON.stringify({ auctionId: auction._id }),
       });
-      if (!response.ok) throw new Error('Delivery confirmation failed');
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.message || 'Delivery confirmation failed');
+      }
       setWonAuctions((prev) =>
-        prev.map((a) => a._id === auctionId ? { ...a, escrowStatus: 'released' } : a)
+        prev.map((a) => a._id === auction._id ? { ...a, escrowStatus: 'released' } : a)
       );
-      alert('Success! Funds have been released from escrow.');
     } catch (err) {
       alert('Error: ' + err.message);
     }
@@ -103,10 +134,23 @@ export default function BidderDashboard() {
     );
   }
 
-  const totalSpent = wonAuctions.reduce((s, a) => s + (a.finalAmount || 0), 0);
+  const totalPaid     = wonAuctions.filter((a) => a.escrowStatus === 'held' || a.escrowStatus === 'released').reduce((s, a) => s + (a.finalAmount || 0), 0);
+  const totalSettled  = wonAuctions.filter((a) => a.escrowStatus === 'released').reduce((s, a) => s + (a.finalAmount || 0), 0);
+  const settledCount  = wonAuctions.filter((a) => a.escrowStatus === 'released').length;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+      {/* Payment modal */}
+      {payingAuction && (
+        <PaymentModal
+          auctionId={payingAuction._id}
+          amount={payingAuction.finalAmount}
+          title={payingAuction.title}
+          onSuccess={handlePaymentSuccess}
+          onClose={() => setPayingAuction(null)}
+        />
+      )}
 
       {/* ── Page header ─────────────────────────────────────── */}
       <motion.div
@@ -142,7 +186,7 @@ export default function BidderDashboard() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.15, duration: 0.4 }}
-          className="flex items-center gap-10 mt-8 pt-8 border-t border-[#242424]"
+          className="flex flex-wrap items-center gap-8 mt-8 pt-8 border-t border-[#242424]"
         >
           <div>
             <p className="text-3xl font-bold tracking-[-0.04em] text-white">
@@ -159,10 +203,22 @@ export default function BidderDashboard() {
           </div>
           <div className="w-px h-10 bg-[#2a2a2a]" />
           <div>
-            <p className="text-3xl font-bold tracking-[-0.04em] text-white">
-              ₹<Counter value={totalSpent} />
+            <p className="text-3xl font-bold tracking-[-0.04em] text-emerald-400">
+              <Counter value={settledCount} />
             </p>
-            <p className="text-[11px] text-[#666] uppercase tracking-[0.1em] mt-1">Total spent</p>
+            <p className="text-[11px] text-[#666] uppercase tracking-[0.1em] mt-1">Settled</p>
+          </div>
+          <div className="w-px h-10 bg-[#2a2a2a]" />
+          <div>
+            <p className="text-3xl font-bold tracking-[-0.04em] text-white">
+              ₹<Counter value={totalSettled} />
+            </p>
+            <p className="text-[11px] text-[#666] uppercase tracking-[0.1em] mt-1">Total settled</p>
+            {totalPaid > totalSettled && (
+              <p className="text-[10px] text-amber-500/70 mt-0.5">
+                +₹{(totalPaid - totalSettled).toLocaleString('en-IN')} in escrow
+              </p>
+            )}
           </div>
         </motion.div>
       </motion.div>
@@ -224,22 +280,17 @@ export default function BidderDashboard() {
                            hover:border-[#3a3a3a] hover:shadow-[0_12px_40px_rgba(0,0,0,0.7)]
                            transition-colors duration-200 overflow-hidden"
               >
-                {/* Subtle cyan accent line */}
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r
                                 from-transparent via-cyan-400/30 to-transparent" />
-
-                {/* Live badge */}
                 <div className="flex items-center gap-1.5 mb-4">
                   <span className="live-dot" style={{ width: 5, height: 5 }} />
                   <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-400">
                     Live
                   </span>
                 </div>
-
                 <h3 className="text-[14px] font-semibold text-white mb-5 truncate tracking-[-0.01em]">
                   {bid.title}
                 </h3>
-
                 <div className="space-y-3 mb-5">
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] text-[#888] uppercase tracking-[0.08em]">
@@ -258,7 +309,6 @@ export default function BidderDashboard() {
                     </span>
                   </div>
                 </div>
-
                 <div className="text-[11px] text-[#888] bg-[#1a1a1a] border border-[#2a2a2a]
                                 rounded-lg px-3 py-2.5">
                   Closes {new Date(bid.endTime).toLocaleString()}
@@ -310,75 +360,117 @@ export default function BidderDashboard() {
             animate="visible"
             className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4"
           >
-            {wonAuctions.map((auction) => (
-              <motion.div
-                key={auction._id}
-                variants={cardAnim}
-                whileHover={{ y: -4, transition: { duration: 0.2 } }}
-                className="group relative bg-[#111] border border-[#2e2e2e] rounded-xl p-5
-                           hover:border-[#3a3a3a] hover:shadow-[0_12px_40px_rgba(0,0,0,0.7)]
-                           transition-colors duration-200 overflow-hidden"
-              >
-                {/* Amber accent line */}
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r
-                                from-transparent via-amber-400/30 to-transparent" />
+            {wonAuctions.map((auction) => {
+              const receiptUrl = `/receipt?transactionId=${encodeURIComponent(auction.stripePaymentIntentId || '')}&auctionId=${encodeURIComponent(auction._id)}&itemName=${encodeURIComponent(auction.title)}&amountPaid=${auction.finalAmount}`;
+              const certUrl    = `/certificate?auctionId=${encodeURIComponent(auction._id)}&itemTitle=${encodeURIComponent(auction.title)}&finalPrice=${auction.finalAmount}`;
 
-                {/* Won badge */}
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.1em]
-                                   text-amber-300 bg-amber-400/12 border border-amber-400/25
-                                   px-2 py-0.5 rounded">
-                    Won
-                  </span>
-                </div>
+              return (
+                <motion.div
+                  key={auction._id}
+                  variants={cardAnim}
+                  whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                  className="group relative bg-[#111] border border-[#2e2e2e] rounded-xl p-5
+                             hover:border-[#3a3a3a] hover:shadow-[0_12px_40px_rgba(0,0,0,0.7)]
+                             transition-colors duration-200 overflow-hidden"
+                >
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r
+                                  from-transparent via-amber-400/30 to-transparent" />
 
-                <h3 className="text-[14px] font-semibold text-white mb-5 truncate tracking-[-0.01em]">
-                  {auction.title}
-                </h3>
-
-                <div className="space-y-3 mb-5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[11px] text-[#888] uppercase tracking-[0.08em]">
-                      Final price
-                    </span>
-                    <span className="text-[16px] font-bold text-white tabular-nums tracking-[-0.02em]">
-                      {fmt(auction.finalAmount)}
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.1em]
+                                     text-amber-300 bg-amber-400/12 border border-amber-400/25
+                                     px-2 py-0.5 rounded">
+                      Won
                     </span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[11px] text-[#888] uppercase tracking-[0.08em]">
-                      Escrow
-                    </span>
-                    <span className={`text-[10px] font-bold uppercase tracking-[0.08em]
-                                      px-2.5 py-0.5 rounded border
-                                      ${escrowStatusStyle(auction.escrowStatus)}`}>
-                      {auction.escrowStatus || 'pending'}
-                    </span>
-                  </div>
-                </div>
 
-                {auction.escrowStatus === 'held' && (
-                  <button
-                    onClick={() => handleConfirmDelivery(auction._id)}
-                    className="w-full bg-white text-[#080808] font-semibold py-2.5 rounded-xl
-                               text-[12px] hover:bg-[#e8e8e8] active:scale-[0.98]
-                               transition-all duration-150"
-                  >
-                    Confirm Item Received
-                  </button>
-                )}
-                {auction.escrowStatus === 'released' && (
-                  <a
-                    href={`/jsp/auction-certificate.jsp?auctionId=${auction._id}`}
-                    className="block w-full text-center py-2.5 px-4 border border-[#2e2e2e]
-                               rounded-xl text-[12px] font-medium text-[#888]
-                               hover:text-white hover:border-[#444] transition-all duration-150"
-                  >
-                    View Certificate
-                  </a>
-                )}
-              </motion.div>
-            ))}
+                  <h3 className="text-[14px] font-semibold text-white mb-5 truncate tracking-[-0.01em]">
+                    {auction.title}
+                  </h3>
+
+                  <div className="space-y-3 mb-5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] text-[#888] uppercase tracking-[0.08em]">
+                        Final price
+                      </span>
+                      <span className="text-[16px] font-bold text-white tabular-nums tracking-[-0.02em]">
+                        {fmt(auction.finalAmount)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] text-[#888] uppercase tracking-[0.08em]">
+                        Escrow
+                      </span>
+                      <span className={`text-[10px] font-bold uppercase tracking-[0.08em]
+                                        px-2.5 py-0.5 rounded border
+                                        ${escrowStatusStyle(auction.escrowStatus)}`}>
+                        {escrowStatusLabel(auction.escrowStatus)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Action area — one state at a time */}
+                  {auction.escrowStatus === 'pending_payment' && (
+                    <button
+                      onClick={() => handlePayNow(auction)}
+                      className="w-full bg-white text-[#080808] font-semibold py-2.5 rounded-xl
+                                 text-[12px] hover:bg-[#e8e8e8] active:scale-[0.98]
+                                 transition-all duration-150"
+                    >
+                      Pay Now
+                    </button>
+                  )}
+
+                  {auction.escrowStatus === 'held' && (
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => handleConfirmDelivery(auction)}
+                        className="w-full bg-white text-[#080808] font-semibold py-2.5 rounded-xl
+                                   text-[12px] hover:bg-[#e8e8e8] active:scale-[0.98]
+                                   transition-all duration-150"
+                      >
+                        Confirm Item Received
+                      </button>
+                      <a
+                        href={receiptUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block w-full text-center py-2 px-4 border border-[#2e2e2e]
+                                   rounded-xl text-[11px] font-medium text-[#666]
+                                   hover:text-white hover:border-[#444] transition-all duration-150"
+                      >
+                        View payment receipt ↗
+                      </a>
+                    </div>
+                  )}
+
+                  {auction.escrowStatus === 'released' && (
+                    <div className="space-y-2">
+                      <a
+                        href={certUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block w-full text-center py-2.5 px-4 border border-[#2e2e2e]
+                                   rounded-xl text-[12px] font-medium text-[#888]
+                                   hover:text-white hover:border-[#444] transition-all duration-150"
+                      >
+                        View Certificate ↗
+                      </a>
+                      <a
+                        href={receiptUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block w-full text-center py-2 px-4 border border-[#2e2e2e]
+                                   rounded-xl text-[11px] font-medium text-[#555]
+                                   hover:text-[#888] hover:border-[#333] transition-all duration-150"
+                      >
+                        View payment receipt ↗
+                      </a>
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
           </motion.div>
         )}
       </section>

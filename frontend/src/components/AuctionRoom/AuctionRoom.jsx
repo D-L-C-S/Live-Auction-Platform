@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import CountdownTimer from '../CountdownTimer/CountdownTimer';
 import BidFeed from '../BidFeed/BidFeed';
 import BiddingForm from '../BiddingForm/BiddingForm';
-import { placeBid, placeProxyBid } from '../../services/api';
+import { placeBid, placeProxyBid, closeAuction, cancelAuction } from '../../services/api';
 
 function formatAmount(n) {
   if (n == null) return '—';
@@ -30,10 +30,12 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
   const [finalAmount,          setFinalAmount]          = useState(
     auction.status === 'closed' ? auction.currentHighestBid : null
   );
-  const [reserveMet,  setReserveMet]  = useState(auction.status !== 'closed' || !!auction.winner);
-  const [outbidAlert, setOutbidAlert] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [bidError,    setBidError]    = useState('');
+  const [reserveMet,    setReserveMet]    = useState(auction.status !== 'closed' || !!auction.winner);
+  const [isCancelled,   setIsCancelled]   = useState(auction.status === 'cancelled');
+  const [outbidAlert,   setOutbidAlert]   = useState(false);
+  const [isSubmitting,  setIsSubmitting]  = useState(false);
+  const [bidError,      setBidError]      = useState('');
+  const [actionLoading, setActionLoading] = useState(null); // 'close' | 'cancel'
   const outbidTimer = useRef(null);
 
   useEffect(() => {
@@ -82,19 +84,27 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
       if (data.auctionId !== auction._id) return;
       setIsClosed(true);
       setReserveMet(data.reserveMet !== false);
-      if (data.winnerId)          setWinner({ _id: data.winnerId });
+      if (data.winnerId)            setWinner({ _id: data.winnerId });
       if (data.finalAmount != null) setFinalAmount(data.finalAmount);
     }
 
-    socket.on('new_bid',        handleNewBid);
-    socket.on('outbid',         handleOutbid);
-    socket.on('auction_closed', handleAuctionClosed);
+    function handleAuctionCancelled(data) {
+      if (data.auctionId !== auction._id) return;
+      setIsCancelled(true);
+      setIsClosed(true);
+    }
+
+    socket.on('new_bid',           handleNewBid);
+    socket.on('outbid',            handleOutbid);
+    socket.on('auction_closed',    handleAuctionClosed);
+    socket.on('auction_cancelled', handleAuctionCancelled);
 
     return () => {
       socket.emit('leave_room', auction._id);
-      socket.off('new_bid',        handleNewBid);
-      socket.off('outbid',         handleOutbid);
-      socket.off('auction_closed', handleAuctionClosed);
+      socket.off('new_bid',           handleNewBid);
+      socket.off('outbid',            handleOutbid);
+      socket.off('auction_closed',    handleAuctionClosed);
+      socket.off('auction_cancelled', handleAuctionCancelled);
       clearTimeout(outbidTimer.current);
     };
   }, [socket, auction._id, currentUserId]);
@@ -106,6 +116,32 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
     if (met) {
       setWinner(currentHighestBidder);
       setFinalAmount(currentHighestBid);
+    }
+  }
+
+  async function handleClose() {
+    if (!globalThis.confirm('End this auction now? The highest bidder will be declared the winner.')) return;
+    setActionLoading('close');
+    try {
+      await closeAuction(auction._id);
+      // UI update arrives via auction_closed socket event
+    } catch (err) {
+      alert('Failed to end auction: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleCancel() {
+    if (!globalThis.confirm('Cancel this auction? All bids will be voided and no winner will be selected.')) return;
+    setActionLoading('cancel');
+    try {
+      await cancelAuction(auction._id);
+      // UI update arrives via auction_cancelled socket event
+    } catch (err) {
+      alert('Failed to cancel auction: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setActionLoading(null);
     }
   }
 
@@ -137,6 +173,9 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
   const imageUrl = !imgError && auction.images?.[0];
   const isSeller = String(auction.seller?._id || auction.seller) === String(currentUserId);
 
+  const bannerBorder   = isCancelled ? 'border-red-500/20' : reserveMet ? 'border-emerald-500/20' : 'border-[#2e2e2e]';
+  const bannerHeading  = isCancelled ? 'Auction Cancelled' : reserveMet ? 'Auction Closed — Sold' : 'Auction Closed — Reserve Not Met';
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
 
@@ -158,16 +197,13 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
         )}
       </AnimatePresence>
 
-      {/* Auction closed banner */}
+      {/* Auction closed / cancelled banner */}
       <AnimatePresence>
         {isClosed && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`mb-8 border rounded-xl px-6 py-5
-              ${reserveMet
-                ? 'bg-[#111] border-emerald-500/20'
-                : 'bg-[#111] border-[#2e2e2e]'}`}
+            className={`mb-8 border rounded-xl px-6 py-5 bg-[#111] ${bannerBorder}`}
           >
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
@@ -175,9 +211,9 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
                   Auction Status
                 </p>
                 <p className="text-lg font-bold tracking-[-0.02em] text-white">
-                  {reserveMet ? 'Auction Closed — Sold' : 'Auction Closed — Reserve Not Met'}
+                  {bannerHeading}
                 </p>
-                {reserveMet && winner && (
+                {!isCancelled && reserveMet && winner && (
                   <p className="text-[13px] text-[#888] mt-1">
                     Winner:{' '}
                     <span className="text-white font-semibold">
@@ -191,18 +227,30 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
                     )}
                   </p>
                 )}
-                {!reserveMet && (
+                {!isCancelled && !reserveMet && (
                   <p className="text-[13px] text-[#999] mt-1">
                     The reserve price was not met. Item will not be sold.
                   </p>
                 )}
+                {isCancelled && (
+                  <p className="text-[13px] text-[#999] mt-1">
+                    This auction was cancelled by the seller. All bids have been voided.
+                  </p>
+                )}
               </div>
-              {reserveMet && (
+              {!isCancelled && reserveMet && (
                 <span className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400
                                  border border-emerald-500/20 text-[11px] font-semibold uppercase
                                  tracking-[0.08em] px-3 py-1.5 rounded-lg shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   Sold
+                </span>
+              )}
+              {isCancelled && (
+                <span className="inline-flex items-center gap-1.5 bg-red-500/10 text-red-400
+                                 border border-red-500/20 text-[11px] font-semibold uppercase
+                                 tracking-[0.08em] px-3 py-1.5 rounded-lg shrink-0">
+                  Cancelled
                 </span>
               )}
             </div>
@@ -365,8 +413,38 @@ export default function AuctionRoom({ auction, socket, currentUserId }) {
             </h2>
 
             {isSeller ? (
-              <div className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-lg p-5 text-center">
-                <p className="text-[#999] text-[13px]">You are the seller of this item.</p>
+              <div className="space-y-3">
+                {!isClosed ? (
+                  <>
+                    <button
+                      onClick={handleClose}
+                      disabled={!!actionLoading}
+                      className="w-full py-2.5 bg-white text-[#080808] rounded-xl text-[12px]
+                                 font-semibold hover:bg-[#e8e8e8] active:scale-[0.98]
+                                 transition-all duration-150 disabled:opacity-40
+                                 disabled:cursor-not-allowed"
+                    >
+                      {actionLoading === 'close' ? 'Ending…' : 'End Auction'}
+                    </button>
+                    <button
+                      onClick={handleCancel}
+                      disabled={!!actionLoading}
+                      className="w-full py-2.5 border border-red-500/25 text-red-400 rounded-xl
+                                 text-[12px] font-semibold hover:bg-red-500/10
+                                 hover:border-red-500/40 active:scale-[0.98]
+                                 transition-all duration-150 disabled:opacity-40
+                                 disabled:cursor-not-allowed"
+                    >
+                      {actionLoading === 'cancel' ? 'Cancelling…' : 'Cancel Auction'}
+                    </button>
+                  </>
+                ) : (
+                  <div className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-lg p-4 text-center">
+                    <p className="text-[#999] text-[13px]">
+                      {isCancelled ? 'This auction has been cancelled.' : 'This auction is closed.'}
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
               <>
