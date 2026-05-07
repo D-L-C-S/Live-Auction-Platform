@@ -26,7 +26,7 @@ npm start       # production
 | `PORT` | Server port (default `5000`) |
 | `MONGO_URI` | MongoDB connection string |
 | `JWT_SECRET` | Secret for signing JWT tokens |
-| `CLIENT_URL` | Frontend origin for CORS (e.g. `http://localhost:5173`) |
+| `CLIENT_URL` | Frontend origin(s) for CORS. Use comma-separated values for multiple domains (e.g. `http://localhost:5173,https://your-frontend.up.railway.app`) |
 | `PROXY_BID_INCREMENT` | Minimum increment for proxy auto-bids (default `1`) |
 
 ## API Routes
@@ -46,6 +46,7 @@ npm start       # production
 | POST | `/api/escrow/confirm-delivery` | JWT | Buyer confirms receipt, releases escrow to seller |
 | GET | `/api/bidders/dashboard` | JWT | Bidder's active bids and won auctions with escrow status |
 | POST | `/api/upload` | JWT | Upload an image (multipart/form-data, field: `image`, max 5 MB) |
+| GET | `/api/health` | — | Healthcheck endpoint for deployment platforms |
 
 Uploaded files are served as static assets at `/uploads/<filename>`.
 

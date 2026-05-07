@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useMotionValue, useTransform, animate, AnimatePresence } from 'framer-motion';
 import PaymentModal from '../components/PaymentModal/PaymentModal';
-import { markPaymentHeld } from '../services/api';
+import { apiFetch, markPaymentHeld } from '../services/api';
 
 function fmt(n) {
   return '₹' + Number(n).toLocaleString('en-IN');
@@ -53,7 +53,7 @@ export default function BidderDashboard() {
     (async () => {
       try {
         const token    = localStorage.getItem('token');
-        const response = await fetch('/api/bidders/dashboard', {
+        const response = await apiFetch('/api/bidders/dashboard', {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!response.ok) throw new Error('Failed to fetch dashboard data');
@@ -93,7 +93,7 @@ export default function BidderDashboard() {
     if (!globalThis.confirm('Are you sure you received the item? This will release funds to the seller.')) return;
     try {
       const token    = localStorage.getItem('token');
-      const response = await fetch('/api/escrow/confirm-delivery', {
+      const response = await apiFetch('/api/escrow/confirm-delivery', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { apiFetch } from '../services/api';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -19,7 +20,7 @@ export default function LoginPage() {
     try {
       let res;
       try {
-        res = await fetch('/api/auth/login', {
+        res = await apiFetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
