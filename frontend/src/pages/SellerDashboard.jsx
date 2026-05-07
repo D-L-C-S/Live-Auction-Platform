@@ -1,16 +1,17 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { createAuction, getSellerListings, fetchEscrow, uploadImage } from "../services/api";
 
-const STATUS_BADGE = {
-  active:  "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
-  closed:  "bg-gray-500/15 text-gray-400 border border-gray-500/30",
-  settled: "bg-blue-500/15 text-blue-400 border border-blue-500/30",
+const STATUS_STYLE = {
+  active:  "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  closed:  "bg-[#1a1a1a] text-[#999] border-[#2e2e2e]",
+  settled: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
 };
 
-const ESCROW_BADGE = {
-  pending:  "bg-amber-500/15 text-amber-400 border border-amber-500/30",
-  held:     "bg-orange-500/15 text-orange-400 border border-orange-500/30",
-  released: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
+const ESCROW_STYLE = {
+  pending:  "bg-[#1a1a1a] text-[#999] border-[#2e2e2e]",
+  held:     "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  released: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
 };
 
 function fmt(n) {
@@ -80,172 +81,163 @@ function CreateListingForm({ onSuccess }) {
   };
 
   return (
-    <div className="bg-[#161622] border border-[#2a2a3d] rounded-2xl p-6">
-      <h3 className="text-sm font-semibold text-gray-300 mb-5 uppercase tracking-wider">New listing</h3>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      className="bg-[#111] border border-[#2e2e2e] rounded-xl p-6"
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#999] mb-6">
+        New listing
+      </p>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-2.5 rounded-lg mb-4">
+        <div className="bg-red-500/8 border border-red-500/20 text-red-400 text-[13px]
+                        px-4 py-3 rounded-lg mb-5">
           {error}
         </div>
       )}
 
-      {/* Title */}
-      <div className="mb-4">
-        <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">
-          Item title *
-        </label>
-        <input
-          className="input-dark w-full"
-          value={form.title}
-          onChange={set("title")}
-          placeholder="e.g. Vintage Leica M3 Camera"
-        />
-      </div>
+      <div className="space-y-4">
+        {/* Title */}
+        <div>
+          <label className="field-label">Item title *</label>
+          <input
+            className="input-dark w-full"
+            value={form.title}
+            onChange={set("title")}
+            placeholder="e.g. Vintage Leica M3 Camera"
+          />
+        </div>
 
-      {/* Description */}
-      <div className="mb-4">
-        <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">
-          Description *
-        </label>
-        <textarea
-          className="input-dark w-full min-h-[72px] resize-y"
-          value={form.description}
-          onChange={set("description")}
-          placeholder="Condition, details, provenance…"
-        />
-      </div>
+        {/* Description */}
+        <div>
+          <label className="field-label">Description *</label>
+          <textarea
+            className="input-dark w-full min-h-[80px] resize-y"
+            value={form.description}
+            onChange={set("description")}
+            placeholder="Condition, details, provenance…"
+          />
+        </div>
 
-      {/* Image upload */}
-      <div className="mb-4">
-        <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">
-          Item photo
-        </label>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current.click()}
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={handleDrop}
-          className={`w-full border-2 border-dashed rounded-xl p-6 flex items-center justify-center min-h-[120px] transition-all duration-150 cursor-pointer
-            ${dragging
-              ? "border-violet-500 bg-violet-500/5"
-              : "border-[#3a3a5c] bg-[#1e1e2e] hover:border-violet-500/50 hover:bg-violet-500/5"
-            }`}
-        >
-          {imagePreview ? (
-            <img src={imagePreview} alt="preview" className="max-h-40 max-w-full rounded-lg object-cover" />
-          ) : (
-            <div className="text-center text-gray-600">
-              <div className="text-3xl mb-2">📷</div>
-              <div className="text-sm">
-                Drag &amp; drop or{' '}
-                <span className="text-violet-400 font-medium">click to select</span>
+        {/* Image upload */}
+        <div>
+          <label className="field-label">Item photo</label>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDrop}
+            className={`w-full border-2 border-dashed rounded-xl p-6 flex items-center
+                        justify-center min-h-[110px] transition-all duration-150 cursor-pointer
+              ${dragging
+                ? "border-cyan-400/40 bg-cyan-400/5"
+                : "border-[#2e2e2e] bg-[#0a0a0a] hover:border-[#2e2e2e]"
+              }`}
+          >
+            {imagePreview ? (
+              <img src={imagePreview} alt="preview"
+                   className="max-h-36 max-w-full rounded-lg object-cover" />
+            ) : (
+              <div className="text-center text-[#888]">
+                <svg className="w-8 h-8 mx-auto mb-2 text-[#999]" fill="none"
+                     viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <div className="text-[13px]">
+                  Drag & drop or{" "}
+                  <span className="text-[#888] font-medium">click to upload</span>
+                </div>
+                <div className="text-[11px] text-[#999] mt-1">PNG, JPG, WEBP · max 5 MB</div>
               </div>
-              <div className="text-xs mt-1 text-gray-700">PNG, JPG, WEBP up to 5 MB</div>
-            </div>
+            )}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => handleFile(e.target.files[0])}
+          />
+          {imagePreview && (
+            <button
+              onClick={() => { setImageFile(null); setImagePreview(null); }}
+              className="mt-2 text-[12px] text-[#888] hover:text-red-400 border border-[#2e2e2e]
+                         hover:border-red-500/30 px-3 py-1.5 rounded-lg transition-all duration-150"
+            >
+              Remove photo
+            </button>
+          )}
+        </div>
+
+        {/* Price row */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="field-label">Starting price (₹) *</label>
+            <input
+              className="input-dark w-full"
+              type="number"
+              min="0"
+              value={form.startingPrice}
+              onChange={set("startingPrice")}
+              placeholder="5000"
+            />
+          </div>
+          <div>
+            <label className="field-label">Reserve price (₹)</label>
+            <input
+              className="input-dark w-full"
+              type="number"
+              min="0"
+              value={form.reservePrice}
+              onChange={set("reservePrice")}
+              placeholder="Optional"
+            />
+          </div>
+        </div>
+
+        {/* Date/Time row */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="field-label">End date *</label>
+            <input
+              className="input-dark w-full"
+              type="date"
+              value={form.endDate}
+              onChange={set("endDate")}
+            />
+          </div>
+          <div>
+            <label className="field-label">End time *</label>
+            <input
+              className="input-dark w-full"
+              type="time"
+              value={form.endTime}
+              onChange={set("endTime")}
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="btn-primary w-full py-2.5 rounded-xl text-[13px] mt-1"
+        >
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="w-3.5 h-3.5 border-2 border-[#080808]/30 border-t-[#080808]
+                               rounded-full animate-spin" />
+              Publishing…
+            </span>
+          ) : (
+            "Publish listing"
           )}
         </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => handleFile(e.target.files[0])}
-        />
-        {imagePreview && (
-          <button
-            onClick={() => { setImageFile(null); setImagePreview(null); }}
-            className="mt-2 text-xs text-gray-500 hover:text-red-400 border border-[#2a2a3d] hover:border-red-500/40 px-3 py-1 rounded-lg transition-all duration-150"
-          >
-            Remove photo
-          </button>
-        )}
       </div>
-
-      {/* Price row */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">
-            Starting price (₹) *
-          </label>
-          <input
-            className="input-dark w-full"
-            type="number"
-            min="0"
-            value={form.startingPrice}
-            onChange={set("startingPrice")}
-            placeholder="5000"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">
-            Reserve price (₹)
-          </label>
-          <input
-            className="input-dark w-full"
-            type="number"
-            min="0"
-            value={form.reservePrice}
-            onChange={set("reservePrice")}
-            placeholder="Optional"
-          />
-        </div>
-      </div>
-
-      {/* Date/Time row */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">
-            End date *
-          </label>
-          <input
-            className="input-dark w-full"
-            type="date"
-            value={form.endDate}
-            onChange={set("endDate")}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">
-            End time *
-          </label>
-          <input
-            className="input-dark w-full"
-            type="time"
-            value={form.endTime}
-            onChange={set("endTime")}
-          />
-        </div>
-      </div>
-
-      <button
-        onClick={handleSubmit}
-        disabled={loading}
-        className="btn-gradient w-full py-2.5 rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {loading ? (
-          <span className="flex items-center justify-center gap-2">
-            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            Publishing…
-          </span>
-        ) : (
-          "Publish listing"
-        )}
-      </button>
-    </div>
-  );
-}
-
-// ─── Escrow Badge ─────────────────────────────────────────────────────────────
-
-function EscrowBadge({ status }) {
-  const safe  = (status && status !== "null") ? status.toLowerCase() : "pending";
-  const label = safe.charAt(0).toUpperCase() + safe.slice(1);
-  const cls   = ESCROW_BADGE[safe] ?? ESCROW_BADGE.pending;
-  return (
-    <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-semibold ${cls}`}>
-      {label}
-    </span>
+    </motion.div>
   );
 }
 
@@ -253,13 +245,15 @@ function EscrowBadge({ status }) {
 
 function ListingsTable({ listings }) {
   return (
-    <div className="bg-[#161622] border border-[#2a2a3d] rounded-2xl overflow-hidden">
+    <div className="bg-[#111] border border-[#2e2e2e] rounded-xl overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-[13px]">
           <thead>
-            <tr className="border-b border-[#2a2a3d]">
+            <tr className="border-b border-[#222]">
               {["Item", "Starting", "Current bid", "Ends in", "Status", "Escrow"].map((h) => (
-                <th key={h} className="text-left text-xs font-medium text-gray-600 px-4 py-3 uppercase tracking-wider">
+                <th key={h}
+                    className="text-left text-[10px] font-medium uppercase tracking-[0.1em]
+                               text-[#888] px-4 py-3.5">
                   {h}
                 </th>
               ))}
@@ -269,21 +263,28 @@ function ListingsTable({ listings }) {
             {listings.map((l, idx) => (
               <tr
                 key={l.id}
-                className={`border-b border-[#1e1e2e] hover:bg-[#1e1e2e]/60 transition-colors duration-100
+                className={`border-b border-[#0e0e0e] hover:bg-[#111] transition-colors duration-100
                   ${idx === listings.length - 1 ? "border-b-0" : ""}`}
               >
-                <td className="px-4 py-3 font-medium text-gray-200 max-w-[200px] truncate">{l.title}</td>
-                <td className="px-4 py-3 text-gray-400">{fmt(l.startingPrice)}</td>
-                <td className={`px-4 py-3 font-semibold ${l.status === "active" ? "text-emerald-400" : "text-gray-400"}`}>
+                <td className="px-4 py-3.5 font-medium text-[#e0e0e0] max-w-[180px] truncate">
+                  {l.title}
+                </td>
+                <td className="px-4 py-3.5 text-[#999] tabular-nums">{fmt(l.startingPrice)}</td>
+                <td className={`px-4 py-3.5 font-semibold tabular-nums
+                  ${l.status === "active" ? "text-white" : "text-[#999]"}`}>
                   {fmt(l.currentBid)}
                 </td>
-                <td className="px-4 py-3 font-mono text-xs text-gray-600">{l.endsIn ?? "—"}</td>
-                <td className="px-4 py-3">
-                  <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-semibold ${STATUS_BADGE[l.status] ?? STATUS_BADGE.closed}`}>
-                    {l.status.charAt(0).toUpperCase() + l.status.slice(1)}
+                <td className="px-4 py-3.5 font-mono text-[12px] text-[#888]">
+                  {l.endsIn ?? "—"}
+                </td>
+                <td className="px-4 py-3.5">
+                  <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold
+                                   uppercase tracking-[0.08em] border
+                                   ${STATUS_STYLE[l.status] ?? STATUS_STYLE.closed}`}>
+                    {l.status}
                   </span>
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3.5">
                   <EscrowBadge status={l.escrowStatus} />
                 </td>
               </tr>
@@ -292,6 +293,18 @@ function ListingsTable({ listings }) {
         </table>
       </div>
     </div>
+  );
+}
+
+function EscrowBadge({ status }) {
+  const safe  = (status && status !== "null") ? status.toLowerCase() : "pending";
+  const label = safe.charAt(0).toUpperCase() + safe.slice(1);
+  const cls   = ESCROW_STYLE[safe] ?? ESCROW_STYLE.pending;
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold
+                     uppercase tracking-[0.08em] border ${cls}`}>
+      {label}
+    </span>
   );
 }
 
@@ -368,83 +381,134 @@ export default function SellerDashboard() {
   const totalSettled = listings.filter((l) => l.status === "settled").reduce((s, l) => s + l.currentBid, 0);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+      {/* Page header */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        className="flex items-start justify-between mb-10 gap-4"
+      >
         <div>
-          <h1 className="text-2xl font-extrabold bg-gradient-to-r from-violet-400 via-fuchsia-400 to-blue-400 bg-clip-text text-transparent">
-            Seller Dashboard
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#888] mb-3">
+            Seller
+          </p>
+          <h1 className="text-3xl font-bold tracking-[-0.03em] text-white">
+            Dashboard
           </h1>
-          <p className="text-gray-500 text-sm mt-0.5">Manage your listings and track sales</p>
+          <p className="text-[13px] text-[#999] mt-2">
+            Manage your listings and track sales
+          </p>
         </div>
         <button
           onClick={() => setTab(tab === "create" ? "dashboard" : "create")}
-          className={tab === "create"
-            ? "text-sm font-medium text-gray-400 border border-[#2a2a3d] hover:border-[#3a3a5c] hover:text-gray-300 px-4 py-2 rounded-xl transition-all duration-150"
-            : "btn-gradient px-4 py-2 rounded-xl text-sm"}
+          className={`shrink-0 px-4 py-2 rounded-xl text-[12px] font-semibold transition-all
+            ${tab === "create"
+              ? "border border-[#2e2e2e] text-[#999] hover:text-white hover:border-[#3a3a3a]"
+              : "bg-white text-[#080808] hover:bg-[#e8e8e8] active:scale-[0.98]"}`}
         >
           {tab === "create" ? "← Back" : "+ New listing"}
         </button>
-      </div>
+      </motion.div>
 
-      {successMsg && (
-        <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm px-4 py-3 rounded-xl mb-6 animate-slide-down">
-          ✓ {successMsg}
-        </div>
-      )}
+      {/* Success toast */}
+      <AnimatePresence>
+        {successMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="bg-emerald-500/8 border border-emerald-500/20 text-emerald-400
+                       text-[13px] px-4 py-3 rounded-xl mb-6 flex items-center gap-2"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+            {successMsg}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {tab === "dashboard" && (
-        <>
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            {[
-              { label: "Active listings", val: activeCount,        icon: "🟢" },
-              { label: "Closed auctions", val: closedCount,        icon: "🔒" },
-              { label: "Total settled",   val: fmt(totalSettled),  icon: "💰" },
-            ].map((s) => (
-              <div
-                key={s.label}
-                className="bg-[#161622] border border-[#2a2a3d] rounded-2xl p-5 hover-lift group"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-gray-600 uppercase tracking-wider">{s.label}</span>
-                  <span className="text-base">{s.icon}</span>
-                </div>
-                <div className="text-2xl font-bold text-gray-100 group-hover:text-violet-300 transition-colors">
-                  {s.val}
-                </div>
+      <AnimatePresence mode="wait">
+        {tab === "dashboard" && (
+          <motion.div
+            key="dashboard"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            {/* Stats row */}
+            <div className="flex items-center gap-8 mb-10 pb-8 border-b border-[#222]">
+              {[
+                { label: "Active listings", val: activeCount },
+                { label: "Closed auctions", val: closedCount },
+                { label: "Total settled",   val: fmt(totalSettled) },
+              ].map((s, i) => (
+                <React.Fragment key={s.label}>
+                  <div>
+                    <p className="text-2xl font-bold tracking-[-0.03em] text-white">{s.val}</p>
+                    <p className="text-[11px] text-[#888] uppercase tracking-[0.08em] mt-0.5">
+                      {s.label}
+                    </p>
+                  </div>
+                  {i < 2 && <div className="w-px h-8 bg-[#2a2a2a]" />}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* Listings section */}
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#999]">
+                My listings
+              </h2>
+              <span className="text-[11px] text-[#999]">{listings.length} total</span>
+            </div>
+
+            {fetchLoading && (
+              <div className="flex items-center justify-center py-16">
+                <div className="w-7 h-7 border-2 border-[#2e2e2e] border-t-[#555] rounded-full animate-spin" />
               </div>
-            ))}
-          </div>
+            )}
 
-          {/* Listings section */}
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">My listings</h2>
-          </div>
+            {fetchError && !fetchLoading && (
+              <div className="bg-red-500/8 border border-red-500/20 text-red-400 text-[13px]
+                              px-4 py-3 rounded-xl">
+                {fetchError}
+              </div>
+            )}
 
-          {fetchLoading && (
-            <div className="text-center py-12 text-gray-600 text-sm">
-              <div className="w-8 h-8 border-2 border-[#2a2a3d] border-t-violet-500 rounded-full animate-spin mx-auto mb-3" />
-              Loading listings…
-            </div>
-          )}
-          {fetchError && !fetchLoading && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-xl">
-              {fetchError}
-            </div>
-          )}
-          {!fetchLoading && !fetchError && listings.length === 0 && (
-            <div className="bg-[#161622] border border-[#2a2a3d] rounded-2xl px-6 py-12 text-center">
-              <p className="text-gray-500 text-sm">No listings yet. Create your first one!</p>
-            </div>
-          )}
-          {!fetchLoading && !fetchError && listings.length > 0 && (
-            <ListingsTable listings={listings} />
-          )}
-        </>
-      )}
+            {!fetchLoading && !fetchError && listings.length === 0 && (
+              <div className="bg-[#111] border border-[#2e2e2e] rounded-xl px-6 py-14 text-center">
+                <p className="text-[#888] text-[13px]">No listings yet.</p>
+                <button
+                  onClick={() => setTab("create")}
+                  className="mt-4 text-[12px] font-medium text-[#888] border border-[#2e2e2e]
+                             px-4 py-2 rounded-lg hover:text-white hover:border-[#3a3a3a]
+                             transition-all duration-150"
+                >
+                  Create your first listing →
+                </button>
+              </div>
+            )}
 
-      {tab === "create" && <CreateListingForm onSuccess={handleSuccess} />}
+            {!fetchLoading && !fetchError && listings.length > 0 && (
+              <ListingsTable listings={listings} />
+            )}
+          </motion.div>
+        )}
+
+        {tab === "create" && (
+          <motion.div
+            key="create"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <CreateListingForm onSuccess={handleSuccess} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { fetchAuction } from '../services/api';
 import AuctionRoom from '../components/AuctionRoom/AuctionRoom';
 import { useSocket } from '../hooks/useSocket';
@@ -10,12 +11,11 @@ export default function AuctionPage() {
   const socket = useSocket();
   const { currentUser } = useAuth();
 
-  // JWT payload uses `id`; guard against other possible field names.
   const currentUserId = currentUser?.id || currentUser?._id || currentUser?.userId || '';
 
-  const [auction, setAuction] = useState(null);
+  const [auction,   setAuction]   = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error,     setError]     = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -23,27 +23,20 @@ export default function AuctionPage() {
     setError('');
 
     fetchAuction(id)
-      .then((data) => {
-        if (!cancelled) setAuction(data);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message || 'Could not load auction.');
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
+      .then((data) => { if (!cancelled) setAuction(data); })
+      .catch((err) => { if (!cancelled) setError(err.message || 'Could not load auction.'); })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [id]);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-96">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-500 text-sm">Loading auction…</p>
+          <div className="w-8 h-8 border-2 border-[#2a2a2a] border-t-[#555] rounded-full
+                          animate-spin mx-auto mb-4" />
+          <p className="text-[13px] text-[#666]">Loading auction…</p>
         </div>
       </div>
     );
@@ -51,15 +44,19 @@ export default function AuctionPage() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-96">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center max-w-sm">
-          <p className="text-red-500 font-semibold mb-2">Error</p>
-          <p className="text-gray-500 text-sm mb-6">{error}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#666] mb-3">
+            Error
+          </p>
+          <p className="text-[#666] text-[13px] mb-6">{error}</p>
           <Link
             to="/auctions"
-            className="inline-block bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+            className="inline-flex items-center gap-2 text-[12px] font-medium text-[#888]
+                       border border-[#2a2a2a] px-4 py-2 rounded-lg hover:text-white
+                       hover:border-[#3a3a3a] transition-all duration-150"
           >
-            ← Back to Auctions
+            ← Browse Auctions
           </Link>
         </div>
       </div>
@@ -68,9 +65,14 @@ export default function AuctionPage() {
 
   return (
     <div>
-      <div className="max-w-6xl mx-auto px-4 pt-6">
-        <Link to="/auctions" className="text-sm text-blue-600 hover:underline font-medium">
-          ← Browse Auctions
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-2">
+        <Link
+          to="/auctions"
+          className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#777]
+                     hover:text-[#ccc] transition-colors duration-150"
+        >
+          <span className="text-[#777]">←</span>
+          Browse Auctions
         </Link>
       </div>
       <AuctionRoom

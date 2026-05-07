@@ -4,72 +4,199 @@
 
 @layer base {
   html, body {
-    @apply bg-[#0d0d14] text-gray-100;
+    background-color: #080808;
+    color: #f0f0f0;
+    font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     color-scheme: dark;
+    font-feature-settings: 'cv11' 1, 'ss01' 1;
   }
 
-  /* Native date/time/select inputs inherit dark color-scheme */
   select, input[type="date"], input[type="time"] {
     color-scheme: dark;
   }
 
-  /* Custom scrollbar */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #4f46e5 #0d0d14;
+    scrollbar-color: #2a2a2a #080808;
   }
-  *::-webkit-scrollbar       { width: 5px; height: 5px; }
-  *::-webkit-scrollbar-track { background: #0d0d14; }
-  *::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 4px; }
+  *::-webkit-scrollbar       { width: 4px; height: 4px; }
+  *::-webkit-scrollbar-track { background: #080808; }
+  *::-webkit-scrollbar-thumb { background: #242424; border-radius: 2px; }
+  *::-webkit-scrollbar-thumb:hover { background: #333333; }
 }
 
 @layer components {
-  /* Dark card surface */
+
+  /* ── Cards ─────────────────────────────── */
+  .card {
+    @apply bg-[#111] border border-[#2e2e2e] rounded-xl;
+  }
+
+  /* Kept for backwards compat (components use these class names) */
   .card-dark {
-    @apply bg-[#161622] border border-[#2a2a3d] rounded-2xl;
+    @apply bg-[#111] border border-[#2e2e2e] rounded-xl;
   }
 
-  /* Gradient text utility */
-  .gradient-text {
-    @apply bg-gradient-to-r from-violet-400 via-fuchsia-400 to-blue-400 bg-clip-text text-transparent;
-  }
-
-  /* Gradient button */
-  .btn-gradient {
-    @apply bg-gradient-to-r from-violet-600 to-blue-600
-           hover:from-violet-500 hover:to-blue-500
-           text-white font-semibold
-           transition-all duration-200
-           hover:shadow-lg hover:shadow-violet-500/30
-           active:scale-[0.98];
-  }
-
-  /* Dark input */
-  .input-dark {
-    @apply bg-[#1e1e2e] border border-[#2a2a3d] text-gray-100
-           placeholder-gray-600 rounded-lg px-3 py-2 text-sm
-           focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50
-           transition-colors duration-150;
-  }
-
-  /* Hover-lift card */
   .hover-lift {
     @apply transition-all duration-200
            hover:-translate-y-1
-           hover:shadow-xl hover:shadow-black/50
-           hover:border-[#3a3a5c];
+           hover:border-[#3a3a3a]
+           hover:shadow-[0_12px_40px_rgba(0,0,0,0.7)];
+  }
+
+  /* ── Buttons ────────────────────────────── */
+  .btn-primary {
+    @apply bg-white text-[#080808] font-semibold
+           transition-all duration-150
+           hover:bg-[#e8e8e8]
+           active:scale-[0.98]
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  /* Kept for backwards compat */
+  .btn-gradient {
+    @apply bg-white text-[#080808] font-semibold
+           transition-all duration-150
+           hover:bg-[#e8e8e8]
+           active:scale-[0.98]
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply border border-[#2a2a2a] text-[#888]
+           transition-all duration-150
+           hover:text-white hover:border-[#3a3a3a] hover:bg-[#141414]
+           active:scale-[0.98];
+  }
+
+  /* ── Inputs ─────────────────────────────── */
+  .input {
+    @apply bg-[#111] border border-[#2e2e2e] text-[#f0f0f0]
+           placeholder-[#555] rounded-lg px-3 py-2.5 text-sm
+           transition-colors duration-150
+           focus:outline-none focus:border-cyan-400/50
+           focus:ring-1 focus:ring-cyan-400/10;
+  }
+
+  /* Kept for backwards compat */
+  .input-dark {
+    @apply bg-[#111] border border-[#2e2e2e] text-[#f0f0f0]
+           placeholder-[#555] rounded-lg px-3 py-2.5 text-sm
+           transition-colors duration-150
+           focus:outline-none focus:border-cyan-400/50
+           focus:ring-1 focus:ring-cyan-400/10;
+  }
+
+  /* ── Labels ─────────────────────────────── */
+  .field-label {
+    @apply block text-[11px] font-medium uppercase tracking-[0.1em] text-[#999] mb-1.5;
+  }
+
+  /* ── Badges ─────────────────────────────── */
+  .badge-live {
+    @apply inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400
+           border border-emerald-500/20 text-[10px] font-semibold uppercase
+           tracking-[0.08em] px-2 py-0.5 rounded;
+  }
+
+  .badge-closed {
+    @apply inline-flex items-center bg-[#1a1a1a] text-[#555]
+           border border-[#2a2a2a] text-[10px] font-semibold uppercase
+           tracking-[0.08em] px-2 py-0.5 rounded;
+  }
+
+  .badge-won {
+    @apply inline-flex items-center bg-amber-500/10 text-amber-400
+           border border-amber-500/20 text-[10px] font-semibold uppercase
+           tracking-[0.08em] px-2 py-0.5 rounded;
+  }
+
+  /* ── Gradient text (kept for compat) ──── */
+  .gradient-text {
+    @apply text-white;
   }
 }
 
-/* Animated gradient background for auth pages */
+/* ── Auth pages ──────────────────────────── */
 .auth-bg {
-  background: linear-gradient(135deg, #0d0d14 0%, #12102a 40%, #0d1a2a 100%);
-  background-size: 200% 200%;
-  animation: gradient-x 10s ease infinite;
+  background-color: #060606;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(34,211,238,0.06) 0%, transparent 100%);
 }
 
-/* Glow ring on focused inputs */
-.input-dark:focus {
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+/* ── Ambient background ───────────────────── */
+.page-bg {
+  background-color: #080808;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 80% 0%, rgba(34,211,238,0.03) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 10% 100%, rgba(99,102,241,0.02) 0%, transparent 60%);
+}
+
+/* ── Grid texture overlay ─────────────────── */
+.grid-texture {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* ── Live indicator dot ───────────────────── */
+.live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: live-pulse-anim 2s ease-in-out infinite;
+}
+
+@keyframes live-pulse-anim {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
+  50%       { opacity: 0.75; box-shadow: 0 0 0 5px rgba(16,185,129,0); }
+}
+
+/* ── Skeleton shimmer ─────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, #141414 0%, #1e1e1e 50%, #141414 100%);
+  background-size: 200% 100%;
+  animation: shimmer-anim 1.6s ease-in-out infinite;
+}
+
+@keyframes shimmer-anim {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── Countdown digit block ────────────────── */
+.digit-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 44px;
+}
+
+.digit-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  color: #f0f0f0;
+  line-height: 1;
+}
+
+.digit-label {
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #777;
+  margin-top: 4px;
+}
+
+/* Focus ring on inputs */
+.input:focus, .input-dark:focus {
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.08);
 }

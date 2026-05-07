@@ -1,25 +1,49 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { motion, useMotionValue, useTransform, animate, AnimatePresence } from 'framer-motion';
 
 function fmt(n) {
   return '₹' + Number(n).toLocaleString('en-IN');
 }
 
-function escrowBadgeClass(status) {
-  if (status === 'held')     return 'bg-amber-500/15 text-amber-400 border border-amber-500/30';
-  if (status === 'released') return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
-  return 'bg-gray-500/15 text-gray-400 border border-gray-500/30';
+function escrowStatusStyle(status) {
+  if (status === 'held')     return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+  if (status === 'released') return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+  return 'bg-[#1c1c1c] text-[#888] border-[#333]';
 }
 
+// Animated number counter
+function Counter({ value, prefix = '', suffix = '' }) {
+  const motionVal = useMotionValue(0);
+  const display = useTransform(motionVal, (v) =>
+    prefix + Math.round(v).toLocaleString('en-IN') + suffix
+  );
+  useEffect(() => {
+    const ctrl = animate(motionVal, value, { duration: 0.8, ease: 'easeOut' });
+    return ctrl.stop;
+  }, [value]);
+  return <motion.span>{display}</motion.span>;
+}
+
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08 } },
+};
+
+const cardAnim = {
+  hidden:   { opacity: 0, y: 18 },
+  visible:  { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] } },
+};
+
 export default function BidderDashboard() {
-  const [activeBids,   setActiveBids]   = useState([]);
-  const [wonAuctions,  setWonAuctions]  = useState([]);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState(null);
+  const [activeBids,  setActiveBids]  = useState([]);
+  const [wonAuctions, setWonAuctions] = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState(null);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    (async () => {
       try {
-        setLoading(true);
         const token    = localStorage.getItem('token');
         const response = await fetch('/api/bidders/dashboard', {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -33,8 +57,7 @@ export default function BidderDashboard() {
       } finally {
         setLoading(false);
       }
-    };
-    fetchDashboardData();
+    })();
   }, []);
 
   const handleConfirmDelivery = async (auctionId) => {
@@ -51,9 +74,7 @@ export default function BidderDashboard() {
       });
       if (!response.ok) throw new Error('Delivery confirmation failed');
       setWonAuctions((prev) =>
-        prev.map((auction) =>
-          auction._id === auctionId ? { ...auction, escrowStatus: 'released' } : auction
-        )
+        prev.map((a) => a._id === auctionId ? { ...a, escrowStatus: 'released' } : a)
       );
       alert('Success! Funds have been released from escrow.');
     } catch (err) {
@@ -63,10 +84,10 @@ export default function BidderDashboard() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-[#0d0d14]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-2 border-[#2a2a3d] border-t-violet-500 rounded-full animate-spin" />
-          <p className="text-sm text-gray-600">Loading dashboard…</p>
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-[#2a2a2a] border-t-[#888] rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[13px] text-[#888]">Loading dashboard…</p>
         </div>
       </div>
     );
@@ -74,117 +95,264 @@ export default function BidderDashboard() {
 
   if (error) {
     return (
-      <div className="text-center mt-16">
-        <p className="text-red-400 text-sm">Error loading dashboard: {error}</p>
+      <div className="max-w-5xl mx-auto px-6 py-10">
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[13px] px-4 py-3 rounded-lg">
+          {error}
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      {/* Page header */}
-      <div className="mb-10">
-        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-violet-400 via-fuchsia-400 to-blue-400 bg-clip-text text-transparent">
-          My Bidding Dashboard
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">Track your active bids and won auctions</p>
-      </div>
+  const totalSpent = wonAuctions.reduce((s, a) => s + (a.finalAmount || 0), 0);
 
-      {/* Active Bids */}
-      <section className="mb-12">
-        <div className="flex items-center gap-3 mb-6">
-          <h2 className="text-lg font-bold text-gray-100">Active Bids</h2>
-          {activeBids.length > 0 && (
-            <span className="bg-violet-500/20 text-violet-400 border border-violet-500/30 text-xs font-semibold px-2 py-0.5 rounded-full">
-              {activeBids.length}
-            </span>
-          )}
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+      {/* ── Page header ─────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="mb-12"
+      >
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#666] mb-3">
+          Overview
+        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-[-0.03em] text-white">
+              My Bids
+            </h1>
+            <p className="text-[13px] text-[#888] mt-2">
+              Track your active bids and won auctions
+            </p>
+          </div>
+          <Link
+            to="/auctions"
+            className="shrink-0 text-[12px] font-semibold bg-white text-[#080808]
+                       px-4 py-2 rounded-xl hover:bg-[#e8e8e8] active:scale-[0.98]
+                       transition-all duration-150 mt-1"
+          >
+            Browse auctions →
+          </Link>
         </div>
 
-        {activeBids.length === 0 ? (
-          <div className="bg-[#161622] border border-[#2a2a3d] rounded-2xl px-6 py-10 text-center">
-            <p className="text-gray-500 text-sm">You don&apos;t have any active bids right now.</p>
+        {/* ── Stats row ── */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.15, duration: 0.4 }}
+          className="flex items-center gap-10 mt-8 pt-8 border-t border-[#242424]"
+        >
+          <div>
+            <p className="text-3xl font-bold tracking-[-0.04em] text-white">
+              <Counter value={activeBids.length} />
+            </p>
+            <p className="text-[11px] text-[#666] uppercase tracking-[0.1em] mt-1">Active</p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {activeBids.map((bid) => (
-              <div
-                key={bid._id}
-                className="bg-[#161622] border border-[#2a2a3d] rounded-2xl p-5 hover-lift group"
+          <div className="w-px h-10 bg-[#2a2a2a]" />
+          <div>
+            <p className="text-3xl font-bold tracking-[-0.04em] text-white">
+              <Counter value={wonAuctions.length} />
+            </p>
+            <p className="text-[11px] text-[#666] uppercase tracking-[0.1em] mt-1">Won</p>
+          </div>
+          <div className="w-px h-10 bg-[#2a2a2a]" />
+          <div>
+            <p className="text-3xl font-bold tracking-[-0.04em] text-white">
+              ₹<Counter value={totalSpent} />
+            </p>
+            <p className="text-[11px] text-[#666] uppercase tracking-[0.1em] mt-1">Total spent</p>
+          </div>
+        </motion.div>
+      </motion.div>
+
+      {/* ── Active Bids ─────────────────────────────────────── */}
+      <section className="mb-14">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.35 }}
+          className="flex items-center gap-3 mb-6"
+        >
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#888]">
+            Active Bids
+          </h2>
+          <AnimatePresence>
+            {activeBids.length > 0 && (
+              <motion.span
+                initial={{ scale: 0.7, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-[10px] font-bold text-cyan-400 bg-cyan-400/12
+                           border border-cyan-400/25 px-2 py-0.5 rounded"
               >
-                {/* Live indicator */}
-                <div className="flex items-center justify-between mb-3">
-                  <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                {activeBids.length}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+        {activeBids.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="bg-[#111] border border-[#2a2a2a] rounded-xl px-6 py-14 text-center"
+          >
+            <p className="text-[#666] text-[14px] mb-4">No active bids right now.</p>
+            <Link
+              to="/auctions"
+              className="inline-block text-[12px] font-semibold bg-white text-[#080808]
+                         px-5 py-2.5 rounded-xl hover:bg-[#e8e8e8] transition-all duration-150"
+            >
+              Browse auctions →
+            </Link>
+          </motion.div>
+        ) : (
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            animate="visible"
+            className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4"
+          >
+            {activeBids.map((bid) => (
+              <motion.div
+                key={bid._id}
+                variants={cardAnim}
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                className="group relative bg-[#111] border border-[#2e2e2e] rounded-xl p-5
+                           hover:border-[#3a3a3a] hover:shadow-[0_12px_40px_rgba(0,0,0,0.7)]
+                           transition-colors duration-200 overflow-hidden"
+              >
+                {/* Subtle cyan accent line */}
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r
+                                from-transparent via-cyan-400/30 to-transparent" />
+
+                {/* Live badge */}
+                <div className="flex items-center gap-1.5 mb-4">
+                  <span className="live-dot" style={{ width: 5, height: 5 }} />
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-400">
                     Live
                   </span>
                 </div>
 
-                <h3 className="text-sm font-bold text-gray-100 mb-4 truncate group-hover:text-violet-300 transition-colors">
+                <h3 className="text-[14px] font-semibold text-white mb-5 truncate tracking-[-0.01em]">
                   {bid.title}
                 </h3>
 
-                <div className="space-y-2">
+                <div className="space-y-3 mb-5">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-600">Current Highest</span>
-                    <span className="text-sm font-bold text-gray-100">{fmt(bid.currentHighestBid)}</span>
+                    <span className="text-[11px] text-[#888] uppercase tracking-[0.08em]">
+                      Current highest
+                    </span>
+                    <span className="text-[14px] font-bold text-white tabular-nums">
+                      {fmt(bid.currentHighestBid)}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-600">Your Proxy Max</span>
-                    <span className="text-sm font-semibold text-violet-400">
+                    <span className="text-[11px] text-[#888] uppercase tracking-[0.08em]">
+                      Your proxy max
+                    </span>
+                    <span className="text-[14px] font-semibold text-cyan-400 tabular-nums">
                       {bid.myMaxBid == null ? '—' : fmt(bid.myMaxBid)}
                     </span>
                   </div>
                 </div>
 
-                <div className="mt-4 text-xs text-gray-700 bg-[#1e1e2e] rounded-lg px-3 py-2">
-                  Closes: {new Date(bid.endTime).toLocaleString()}
+                <div className="text-[11px] text-[#888] bg-[#1a1a1a] border border-[#2a2a2a]
+                                rounded-lg px-3 py-2.5">
+                  Closes {new Date(bid.endTime).toLocaleString()}
                 </div>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </section>
 
-      {/* Won Auctions & Escrow */}
+      {/* ── Won Auctions ────────────────────────────────────── */}
       <section>
-        <div className="flex items-center gap-3 mb-6">
-          <h2 className="text-lg font-bold text-gray-100">Won Auctions &amp; Escrow</h2>
-          {wonAuctions.length > 0 && (
-            <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold px-2 py-0.5 rounded-full">
-              {wonAuctions.length}
-            </span>
-          )}
-        </div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.35 }}
+          className="flex items-center gap-3 mb-6"
+        >
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#888]">
+            Won Auctions &amp; Escrow
+          </h2>
+          <AnimatePresence>
+            {wonAuctions.length > 0 && (
+              <motion.span
+                initial={{ scale: 0.7, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-[10px] font-bold text-amber-400 bg-amber-400/12
+                           border border-amber-400/25 px-2 py-0.5 rounded"
+              >
+                {wonAuctions.length}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </motion.div>
 
         {wonAuctions.length === 0 ? (
-          <div className="bg-[#161622] border border-[#2a2a3d] rounded-2xl px-6 py-10 text-center">
-            <p className="text-gray-500 text-sm">You haven&apos;t won any auctions yet.</p>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="bg-[#111] border border-[#2a2a2a] rounded-xl px-6 py-14 text-center"
+          >
+            <p className="text-[#666] text-[14px]">No won auctions yet.</p>
+          </motion.div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <motion.div
+            variants={stagger}
+            initial="hidden"
+            animate="visible"
+            className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4"
+          >
             {wonAuctions.map((auction) => (
-              <div
+              <motion.div
                 key={auction._id}
-                className="bg-gradient-to-br from-[#1a1535] to-[#161622] border border-violet-500/20 rounded-2xl p-5 hover-lift"
+                variants={cardAnim}
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                className="group relative bg-[#111] border border-[#2e2e2e] rounded-xl p-5
+                           hover:border-[#3a3a3a] hover:shadow-[0_12px_40px_rgba(0,0,0,0.7)]
+                           transition-colors duration-200 overflow-hidden"
               >
-                {/* Trophy */}
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-amber-400 text-lg">🏆</span>
-                  <span className="text-xs text-amber-400 font-semibold uppercase tracking-wide">Won</span>
+                {/* Amber accent line */}
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r
+                                from-transparent via-amber-400/30 to-transparent" />
+
+                {/* Won badge */}
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.1em]
+                                   text-amber-300 bg-amber-400/12 border border-amber-400/25
+                                   px-2 py-0.5 rounded">
+                    Won
+                  </span>
                 </div>
 
-                <h3 className="text-sm font-bold text-gray-100 mb-4 truncate">{auction.title}</h3>
+                <h3 className="text-[14px] font-semibold text-white mb-5 truncate tracking-[-0.01em]">
+                  {auction.title}
+                </h3>
 
-                <div className="space-y-2 mb-5">
+                <div className="space-y-3 mb-5">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-600">Final Price</span>
-                    <span className="text-base font-bold text-gray-100">{fmt(auction.finalAmount)}</span>
+                    <span className="text-[11px] text-[#888] uppercase tracking-[0.08em]">
+                      Final price
+                    </span>
+                    <span className="text-[16px] font-bold text-white tabular-nums tracking-[-0.02em]">
+                      {fmt(auction.finalAmount)}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-600">Escrow Status</span>
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide ${escrowBadgeClass(auction.escrowStatus)}`}>
-                      {auction.escrowStatus}
+                    <span className="text-[11px] text-[#888] uppercase tracking-[0.08em]">
+                      Escrow
+                    </span>
+                    <span className={`text-[10px] font-bold uppercase tracking-[0.08em]
+                                      px-2.5 py-0.5 rounded border
+                                      ${escrowStatusStyle(auction.escrowStatus)}`}>
+                      {auction.escrowStatus || 'pending'}
                     </span>
                   </div>
                 </div>
@@ -192,21 +360,25 @@ export default function BidderDashboard() {
                 {auction.escrowStatus === 'held' ? (
                   <button
                     onClick={() => handleConfirmDelivery(auction._id)}
-                    className="btn-gradient w-full py-2 rounded-xl text-sm"
+                    className="w-full bg-white text-[#080808] font-semibold py-2.5 rounded-xl
+                               text-[12px] hover:bg-[#e8e8e8] active:scale-[0.98]
+                               transition-all duration-150"
                   >
                     Confirm Item Received
                   </button>
                 ) : (
                   <a
                     href={`/jsp/auction-certificate.jsp?auctionId=${auction._id}`}
-                    className="w-full flex justify-center py-2 px-4 border border-[#2a2a3d] rounded-xl text-sm font-medium text-gray-400 hover:bg-[#1e1e2e] hover:text-gray-300 hover:border-[#3a3a5c] transition-all duration-150"
+                    className="block w-full text-center py-2.5 px-4 border border-[#2e2e2e]
+                               rounded-xl text-[12px] font-medium text-[#888]
+                               hover:text-white hover:border-[#444] transition-all duration-150"
                   >
-                    View Official Certificate
+                    View Certificate
                   </a>
                 )}
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </section>
     </div>

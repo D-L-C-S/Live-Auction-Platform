@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
@@ -50,34 +51,46 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center auth-bg px-4">
-      {/* Subtle radial glow behind card */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="w-96 h-96 rounded-full bg-violet-600/10 blur-3xl" />
+    <div className="min-h-[calc(100vh-56px)] flex items-center justify-center auth-bg grid-texture px-4 relative overflow-hidden">
+
+      {/* Ambient glow */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px]
+                        bg-cyan-400/[0.04] blur-[80px] rounded-full" />
       </div>
 
-      <div className="relative w-full max-w-sm animate-fade-in">
-        {/* Card */}
-        <div className="bg-[#161622] border border-[#2a2a3d] rounded-2xl p-8 shadow-2xl shadow-black/60">
-          {/* Logo */}
-          <div className="text-center mb-6">
-            <span className="text-3xl font-extrabold bg-gradient-to-r from-violet-400 via-fuchsia-400 to-blue-400 bg-clip-text text-transparent">
-              BidMaster
-            </span>
-            <p className="text-sm text-gray-500 mt-1">Sign in to your account</p>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="relative w-full max-w-[380px]"
+      >
+        {/* Brand */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white mb-4">
+            <span className="text-[#080808] text-sm font-black tracking-tight">BM</span>
           </div>
+          <h1 className="text-xl font-bold tracking-[-0.02em] text-white">Sign in to BidMaster</h1>
+          <p className="text-[13px] text-[#999] mt-1">Enter the auction room</p>
+        </div>
+
+        {/* Card */}
+        <div className="bg-[#111] border border-[#2e2e2e] rounded-2xl p-7 shadow-[0_24px_80px_rgba(0,0,0,0.7)]">
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-2.5 rounded-lg mb-4 animate-slide-down">
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-500/8 border border-red-500/20 text-red-400 text-[13px]
+                         px-4 py-3 rounded-lg mb-5"
+            >
               {error}
-            </div>
+            </motion.div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-                Email
-              </label>
+              <label className="field-label">Email</label>
               <input
                 type="email"
                 required
@@ -89,9 +102,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wider">
-                Password
-              </label>
+              <label className="field-label">Password</label>
               <input
                 type="password"
                 required
@@ -105,11 +116,11 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full btn-gradient py-2.5 rounded-xl text-sm mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full btn-primary py-2.5 rounded-xl text-[13px] mt-1"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span className="w-3.5 h-3.5 border-2 border-[#080808]/30 border-t-[#080808] rounded-full animate-spin" />
                   Signing in…
                 </span>
               ) : (
@@ -118,14 +129,16 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="text-center text-sm text-gray-600 mt-5">
-            Don&apos;t have an account?{' '}
-            <Link to="/register" className="text-violet-400 hover:text-violet-300 font-medium transition-colors">
-              Register
-            </Link>
-          </p>
+          <div className="mt-6 pt-5 border-t border-[#222] text-center">
+            <p className="text-[13px] text-[#999]">
+              No account?{' '}
+              <Link to="/register" className="text-[#f0f0f0] hover:text-white font-medium transition-colors">
+                Create one
+              </Link>
+            </p>
+          </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
