@@ -27,6 +27,11 @@ connectDB().then(() => {
   cleanOrphanedUploads();
 });
 
+// Keep healthcheck independent from CORS and other middleware.
+app.get('/api/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 app.use(cors({ origin: corsOriginHandler(allowedOrigins), credentials: true }));
 app.use('/uploads', express.static(require('node:path').join(__dirname, 'uploads')));
 
@@ -62,9 +67,6 @@ if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET) {
 
 app.use(express.json());
 app.use(socketMiddleware);
-app.get('/api/health', (_req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/auctions', auctionRoutes);
@@ -79,4 +81,4 @@ app.use((err, _req, res, _next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));

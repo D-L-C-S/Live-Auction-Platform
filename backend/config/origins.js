@@ -1,8 +1,11 @@
 function parseAllowedOrigins() {
-  return (process.env.CLIENT_URL || '')
+  const configured = (process.env.CLIENT_URL || '')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+
+  // Railway healthchecks may send this origin.
+  return [...new Set([...configured, 'https://healthcheck.railway.app'])];
 }
 
 function isAllowedOrigin(origin, allowedOrigins) {
