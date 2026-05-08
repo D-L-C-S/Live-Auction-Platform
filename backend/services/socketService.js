@@ -1,12 +1,17 @@
 const { Server } = require('socket.io');
+const { isAllowedOrigin } = require('../config/origins');
 
 let io;
 
-const initSocket = (httpServer) => {
+const initSocket = (httpServer, allowedOrigins = []) => {
   io = new Server(httpServer, {
     cors: {
-      origin: process.env.CLIENT_URL,
+      origin: (origin, callback) => {
+        if (isAllowedOrigin(origin, allowedOrigins)) return callback(null, true);
+        return callback(new Error('Not allowed by CORS'), false);
+      },
       methods: ['GET', 'POST'],
+      credentials: true,
     },
   });
 

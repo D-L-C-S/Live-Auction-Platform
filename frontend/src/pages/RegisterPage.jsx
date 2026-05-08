@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { apiFetch } from '../services/api';
 
 export default function RegisterPage() {
   const { login } = useAuth();
@@ -20,7 +21,7 @@ export default function RegisterPage() {
     try {
       let res;
       try {
-        res = await fetch('/api/auth/register', {
+        res = await apiFetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, password }),

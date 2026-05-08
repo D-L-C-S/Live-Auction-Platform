@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { fetchAuctions } from '../services/api';
+import { fetchAuctions, toAssetUrl } from '../services/api';
 import CountdownTimer from '../components/CountdownTimer/CountdownTimer';
 
 function formatAmount(n) {
@@ -181,7 +181,7 @@ export default function AuctionListingPage() {
               >
                 {/* Image */}
                 <div className="h-44 bg-[#1a1a1a] flex items-center justify-center overflow-hidden relative">
-                  <AuctionImage src={auction.images?.[0]} alt={auction.title} />
+                  <AuctionImage src={toAssetUrl(auction.images?.[0])} alt={auction.title} />
 
                   {/* Bottom gradient */}
                   <div className="absolute inset-x-0 bottom-0 h-16

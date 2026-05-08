@@ -17,6 +17,7 @@ Copy `.env.example` to `.env`.
 | Variable | Required | Description |
 |---|---|---|
 | `VITE_API_URL` | Yes | Backend base URL (e.g. `http://localhost:5000`) |
+| `VITE_SOCKET_URL` | No | Socket.io server origin. Falls back to `VITE_API_URL` if omitted |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Yes | Stripe publishable key (`pk_test_...`) |
 
 ## Pages
