@@ -1,23 +1,45 @@
 const Auction = require('../models/Auction');
 const Bid = require('../models/Bid');
-const { runProxyBidding, setProxyBid } = require('../services/proxyBidService');
+const { runProxyBidding, setProxyBid, winsAgainst } = require('../services/proxyBidService');
 
 const placeBid = async (req, res, next) => {
   try {
-    const auction = req.auction; // attached by validateBid
+    const { auctionId } = req.params;
     const { amount } = req.body;
     const bidderId = req.user._id;
 
-    const previousHighestBidder = auction.currentHighestBidder;
+    // Compare-and-set. If another bid moved the price (or the auction closed)
+    // between validateBid and now, this matches nothing and returns null —
+    // so two concurrent bids can never both win.
+    const prev = await Auction.findOneAndUpdate(
+      { _id: auctionId, ...winsAgainst(amount) },
+      { $set: { currentHighestBid: amount, currentHighestBidder: bidderId } },
+      { new: false } // pre-update doc → tells us who was leading, for the outbid event
+    );
 
-    const bid = await Bid.create({ auction: auction._id, bidder: bidderId, amount });
+    if (!prev) {
+      // We lost the race (or the auction is no longer biddable). Re-read to say why.
+      const current = await Auction.findById(auctionId).lean();
+      if (!current) return res.status(404).json({ message: 'Auction not found' });
+      if (current.status !== 'active') {
+        return res.status(409).json({ code: 'AUCTION_CLOSED', message: 'This auction is no longer active.' });
+      }
+      if (new Date() > current.endTime) {
+        return res.status(409).json({ code: 'AUCTION_ENDED', message: 'This auction has ended.' });
+      }
+      const price = current.currentHighestBid ?? current.startingPrice;
+      return res.status(409).json({
+        code: 'PRICE_CHANGED',
+        message: `Your bid of ₹${amount} is no longer high enough — the price moved to ₹${price}. Place a higher bid.`,
+        currentHighestBid: current.currentHighestBid,
+        startingPrice: current.startingPrice,
+      });
+    }
 
-    auction.currentHighestBid = amount;
-    auction.currentHighestBidder = bidderId;
-    await auction.save();
+    // CAS won — now it's safe to persist the Bid row.
+    const bid = await Bid.create({ auction: auctionId, bidder: bidderId, amount });
 
-    const room = auction._id.toString();
-
+    const room = String(auctionId);
     req.io.to(room).emit('new_bid', {
       auctionId: room,
       bidId: bid._id,
@@ -27,7 +49,7 @@ const placeBid = async (req, res, next) => {
       isAuto: false,
     });
 
-    // Notify outbid user; clients filter by outbidUserId to show their own notification
+    const previousHighestBidder = prev.currentHighestBidder;
     if (previousHighestBidder && !previousHighestBidder.equals(bidderId)) {
       req.io.to(room).emit('outbid', {
         auctionId: room,
@@ -35,7 +57,7 @@ const placeBid = async (req, res, next) => {
       });
     }
 
-    await runProxyBidding({ auction, io: req.io });
+    await runProxyBidding({ auctionId, io: req.io });
 
     res.status(201).json({ bid });
   } catch (err) {
@@ -45,7 +67,8 @@ const placeBid = async (req, res, next) => {
 
 const placeProxyBid = async (req, res, next) => {
   try {
-    const auction = await Auction.findById(req.params.auctionId);
+    const { auctionId } = req.params;
+    const auction = await Auction.findById(auctionId);
     if (!auction) {
       return res.status(404).json({ message: 'Auction not found' });
     }
@@ -54,33 +77,31 @@ const placeProxyBid = async (req, res, next) => {
     const { maxBid } = req.body;
 
     const proxyBid = await setProxyBid({ auction, bidderId, maxBid });
-    await runProxyBidding({ auction, io: req.io });
+    await runProxyBidding({ auctionId, io: req.io });
 
+    // re-read so the response reflects any auto-bids the loop just placed
+    const fresh = await Auction.findById(auctionId).lean();
     res.status(200).json({
       proxyBid,
-      currentHighestBid: auction.currentHighestBid,
-      currentHighestBidder: auction.currentHighestBidder,
+      currentHighestBid: fresh.currentHighestBid,
+      currentHighestBidder: fresh.currentHighestBidder,
     });
   } catch (err) {
     next(err);
   }
 };
 
-// NEW: Fetch all previous bids for the room load
+// Fetch all bids for an auction, highest first — used for the room's initial load.
 const getAuctionBids = async (req, res, next) => {
   try {
     const { auctionId } = req.params;
-    
-    // Finds all bids tied to this auction, sorts them highest amount to lowest
     const bids = await Bid.find({ auction: auctionId })
-                          .populate('bidder', 'name username') 
-                          .sort({ amount: -1 });
-                          
+      .populate('bidder', 'name username')
+      .sort({ amount: -1 });
     res.status(200).json(bids);
   } catch (err) {
-    next(err); // Matches your existing error handling structure
+    next(err);
   }
 };
 
-// Make sure to export the new function here!
 module.exports = { placeBid, placeProxyBid, getAuctionBids };
